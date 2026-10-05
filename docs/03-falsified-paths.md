@@ -173,3 +173,18 @@ is that **the weapon's attachment point is declared by the model itself**, and t
 
 **⇒ If the model's proportions and the original skeleton are to hold at the same time, there is only one road:
 change the model's skeleton **into** bone lengths consistent with the game skeleton (that is, give up the goal of "original proportions").**
+
+---
+
+## L. The shorter path (stated for completeness)
+
+Everything above assumes the goal is **keeping the model's own proportions**.
+
+If that goal is not required, there is an existing, supported route that makes much of this
+section moot: adopt the game's skeleton (the toolchain's fit-to-skeleton workflow). After that,
+the name-driven systems line up by construction — weapon in hand, feet planted, IK active.
+
+**⇒ See `06-toolchain-landscape.md` for what that route covers and what it costs (the model's
+proportions become the game's).**
+
+**⇒ This section exists to record what the *other* goal runs into — not to claim it is the only goal.**

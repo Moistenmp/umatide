@@ -12,20 +12,28 @@ requirement, skeleton completeness, and **a record of the approaches that do not
 
 ## 1. The problem this addresses
 
-Darktide runs on the Stingray/Bitsquid engine family. Importing an external character model
-(for example a model originating from a PMX/MMD workflow) is **not primarily a coding problem**.
-The hard part is that **nobody has published the format and the conventions**:
+**Read `docs/06-toolchain-landscape.md` first if you are here to get a model into the game.**
+It maps what the existing toolchain already covers, and states plainly which goal this repository
+is about — so you can pick the shorter path if it fits you.
+
+Darktide runs on the Stingray/Bitsquid engine family. There are **two different goals** when
+putting an external character model in:
+
+| Goal | Status |
+|---|---|
+| **A. Use the game's skeleton** — fit the model to it | **already covered by the existing toolchain** (import → Blender → compile against a reference skeleton → register). Everything lines up: weapon, feet, IK. Proportions become the game's. |
+| **B. Keep the model's own proportions** | **not covered — this is what these docs record.** The model keeps its proportions, and the name-driven engine systems and the weapon contact points no longer line up automatically. |
+
+**⇒ This repository is about goal B.** It is not a claim that hand-editing is the only route.
+
+What goal B forces you to deal with, and what we found while doing so:
 
 - the binary layout of a unit resource (sections, name hashes, the local transform block)
-- a convention of this engine family: **attachment points and bone names must be addressable**
-  (the equivalent of a `$attachment` declaration in Source-engine models)
-- **skeleton completeness**: a missing bone name means the engine's own weapon animation,
-  foot IK and hand IK **have nothing to act on**
+- the engine family's convention that **attachment points and bone names must be addressable**
+- **why the two goals conflict at all** — the weapon's visible mesh is bound to the game
+  character's skeleton, so a model with different proportions cannot receive it by moving things around
 - **which approaches have already been tried and disproven** (runtime IK compensation,
-  re-parenting, renaming bones)
-
-This repository turns the above into **checkable facts**, and will gradually add
-**parameterized tools**.
+  re-parenting, renaming bones), with the measurements behind each
 
 ---
 
@@ -33,14 +41,15 @@ This repository turns the above into **checkable facts**, and will gradually add
 
 ```
 docs/
+  06-toolchain-landscape.md    ★ START HERE: what the existing toolchain covers, and where this repo sits
   01-unit-format.md            Unit resource format: sections, hashes, local transform block, name resolution
   02-skeleton-completeness.md  What missing bone names actually break (three systems resolve names)
   03-falsified-paths.md        Approaches already disproven — with evidence and criteria
   04-cross-engine-ref.md       Comparison with the sibling engine family's conventions
   05-reproduce.md              Minimal reproduction recipe, marked verified / unverified
-  zh/                          Chinese originals of the above (working notes, kept as-is)
+  zh/                          Chinese originals of docs 01–05 (working notes, kept as-is)
 tools/                         Parameterized tools — **not ready yet**, see below
-NOTICE.md                      Copyright and scope boundaries — **read this first**
+NOTICE.md                      Copyright and scope boundaries — **read this too**
 ```
 
 > **`tools/` is intentionally empty for now.**
@@ -69,11 +78,13 @@ NOTICE.md                      Copyright and scope boundaries — **read this fi
 
 ## 4. If you want to reproduce this
 
-1. Read `NOTICE.md` first (scope).
-2. Read `docs/01-unit-format.md` (the format facts you will need).
-3. Read `docs/03-falsified-paths.md` — **this one saves the most time.** It is the list of
+1. Read `docs/06-toolchain-landscape.md` — **decide whether you actually need goal B first.**
+   If the game's proportions are acceptable to you, the existing toolchain is the shorter path.
+2. Read `NOTICE.md` (scope).
+3. Read `docs/01-unit-format.md` (the format facts you will need).
+4. Read `docs/03-falsified-paths.md` — **this one saves the most time.** It is the list of
    roads already walked and closed.
-4. Then use `docs/05-reproduce.md`, paying attention to the `verified` / `unverified` markers.
+5. Then use `docs/05-reproduce.md`, paying attention to the `verified` / `unverified` markers.
 
 **⇒ Provided as-is, with no support commitment.** If you hit a problem while reproducing this,
 please open an issue with **what you observed and your logs** — observations are worth more than
