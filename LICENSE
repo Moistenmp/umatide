@@ -1,0 +1,58 @@
+# License — documentation
+
+**The documentation in this repository** — that is, all `.md` files (including `README.md`,
+`NOTICE.md` and everything under `docs/`) — is licensed under:
+
+## Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+You are free to:
+
+- **Share** — copy and redistribute the material in any medium or format
+- **Adapt** — remix, transform, and build upon the material for any purpose, even commercially
+
+Under the following terms:
+
+- **Attribution** — You must give appropriate credit, provide a link to the license, and indicate
+  if changes were made. You may do so in any reasonable manner, but not in any way that suggests
+  the licensor endorses you or your use.
+- **No additional restrictions** — You may not apply legal terms or technological measures that
+  legally restrict others from doing anything the license permits.
+
+**Suggested attribution line:**
+
+> Based on "umatide" documentation — https://github.com/Moistenmp/umatide — licensed under CC BY 4.0.
+
+---
+
+## Full legal text
+
+The complete legal code of CC BY 4.0 is published by Creative Commons at:
+
+- https://creativecommons.org/licenses/by/4.0/legalcode
+
+A human-readable summary is at:
+
+- https://creativecommons.org/licenses/by/4.0/
+
+**That legal code governs; the summary above is not a substitute for it.**
+
+---
+
+## Code
+
+Scripts and tooling in this repository (currently none; `tools/` is reserved) are licensed
+separately under the MIT License — see `LICENSE-CODE`.
+
+---
+
+## What is NOT covered
+
+This license applies **only** to the original text of this repository.
+
+It does **not** grant any rights to:
+
+- the Darktide game, its code, or its assets (rights belong to their respective owners)
+- any third-party model, texture, animation or other asset (rights belong to their respective owners)
+- any third-party tool referenced in the documentation
+
+**See `NOTICE.md` for the full scope statement.**

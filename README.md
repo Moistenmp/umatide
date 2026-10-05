@@ -100,3 +100,18 @@ criteria where possible (byte offsets, measured values, observed behavior, algeb
 
 If you find a claim that **does not hold**, say so and bring your evidence.
 **We would rather have facts that survive scrutiny than a tidy story.**
+
+---
+
+## 6. Licensing
+
+| Content | License |
+|---|---|
+| **Documentation** (all `.md` files) | **CC BY 4.0** — reuse and adapt freely, including commercially, **with attribution** |
+| **Code** (`tools/`, when it appears) | **MIT** |
+
+**⇒ See `LICENSE` and `LICENSE-CODE`.**
+**⇒ Neither license grants any rights to the game, its assets, or any third-party model or asset —
+see `NOTICE.md`.**
+
+**Suggested attribution:** *Based on "umatide" documentation — https://github.com/Moistenmp/umatide — CC BY 4.0.*
