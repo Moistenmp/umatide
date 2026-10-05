@@ -1,0 +1,56 @@
+# ── 凭据与密钥（绝不入库）────────────────────────────────
+*.token
+github_token.txt
+.env
+*.pem
+*.key
+id_rsa*
+
+# ── 游戏资源与反编译产物（绝不能入库，见 NOTICE.md）──────
+*.unit
+*.bones
+*.material
+*.texture
+*.dds
+*.package
+*.bundle
+bundle_database.data
+patch_*.lua
+*Source-Code*/
+*_reference*/
+*_extract*/
+*_staging*/
+
+# ── 模型资产（绝不能入库）────────────────────────────────
+*.pmx
+*.pmd
+*.vmd
+*.fbx
+*.glb
+*.gltf
+*.blend
+*.obj
+*.mtl
+*.png
+*.jpg
+*.jpeg
+*.tga
+*.psd
+
+# ── 构建/中间产物 ───────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.tmp
+.build/
+dist/
+build/
+out/
+
+# ── 编辑器与系统 ────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
