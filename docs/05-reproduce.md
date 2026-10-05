@@ -1,158 +1,158 @@
-# 05 · 从零复现：最小配方
+# 05 · Reproducing from scratch: a minimal recipe
 
-> ⚠️ **本文标了状态。** 请只把 `✅ 已验证` 的部分当作可用事实；
-> `⚠️ 未验证` 的部分是**方向**，不是保证。
+> ⚠️ **This document marks its status.** Treat only the parts labelled `✅ verified` as usable facts;
+> the parts labelled `⚠️ unverified` are a **direction**, not a guarantee.
 
 ---
 
-## 0. 你需要先准备什么
+## 0. What you need to prepare first
 
-| 你需要 | 说明 |
+| What you need | Notes |
 |---|---|
-| **自己合法拥有的 Darktide** | 本仓库不提供游戏文件 |
-| **自己有权使用的模型** | 模型的来源与授权由你确认（见 `NOTICE.md`） |
-| **对第三方工具的使用条款** | 社区通用的解包 / 转换工具，各自有各自的许可 |
-| **一套备份习惯** | 改资产前先备份；**只移不删** |
+| **A Darktide copy you legitimately own** | This repository does not provide game files |
+| **Models you are entitled to use** | You confirm the provenance and licensing of the models (see `NOTICE.md`) |
+| **Compliance with third-party tool terms** | The unpacking / conversion tools common in the community each have their own licence |
+| **A backup habit** | Back up assets before modifying them; **move, never delete** |
 
 ---
 
-## 1. 先理解目标，再决定路线 ✅ 已验证
+## 1. Understand the goal first, then decide on a route ✅ verified
 
-**核心约束（形式化，见 `03-falsified-paths.md` §K）：**
+**The core constraint (formalized; see `03-falsified-paths.md` §K):**
 
 ```
-接触点（手、脚）位置  ← 由骨长决定
-蒙皮在静置姿态不拉伸  ← 要求骨长与模型自身绑定一致
-⇒ 在"武器的可见网格绑定在游戏角色骨架上"的引擎里，
-   "保模型原始比例" 与 "接触点完全正确" 不可兼得
+Contact point (hands, feet) position  ← determined by bone length
+Skin does not stretch in the rest pose  ← requires bone length to agree with the model's own binding
+⇒ In an engine where "the weapon's visible mesh is bound to the game character's skeleton",
+   "preserve the model's original proportions" and "get the contact points exactly right" cannot both hold
 ```
 
-**⇒ 所以第一步不是写代码，是**选路线**：**
+**⇒ So the first step is not writing code, it is choosing a route:**
 
-| 路线 | 做法 | 结果 |
+| Route | What you do | Result |
 |---|---|---|
-| **① 骨架对齐** | 把模型的骨架比例改成与游戏一致 | 接触点正确；**比例改变** |
-| **② 保比例** | 什么都不改 | 比例保留；**接触点有差量** |
-| **③ 混合** | 只把**四肢**骨长对齐游戏，躯干/头/发/服装保留 | 接触点正确；四肢比例略变 |
-| **④ 运行期 IK 硬补** | 每帧解 IK 去够 | ❌ **已证伪**（几何上够不到，见下） |
+| **① Skeleton alignment** | Change the model's skeleton proportions to match the game | Contact points correct; **proportions change** |
+| **② Preserve proportions** | Change nothing | Proportions preserved; **contact points are off** |
+| **③ Hybrid** | Align only the **limb** bone lengths with the game, keep torso/head/hair/clothing | Contact points correct; limb proportions shift slightly |
+| **④ Runtime IK brute force** | Solve IK every frame to reach | ❌ **Falsified** (geometrically out of reach; see below) |
 
-**路线 ④ 为什么不行（实测数字，臂部）：**
+**Why route ④ does not work (measured numbers, arm):**
 ```
-我方臂链 0.5821 m ｜ 角色臂链 0.7312 m
-我方肩 → 角色手 0.6686 m
-⇒ 余量 = −8.64 cm   ★ 够不到
-```
-
----
-
-## 2. 资产侧：让 unit 可被引擎寻址
-
-### 2.1 读懂格式 ✅ 已验证
-见 `docs/01-unit-format.md`。**动手前务必读 §3.1（局部变换块 = 36+12+12）与 §3.4（名字哈希在父子表之后）**
-——那两个点是我们踩过的坑。
-
-### 2.2 补齐骨名与挂点 ✅ 已验证原理 / ⚠️ 工具未参数化
-
-```
-① 名字表加名字
-② 场景图建对应节点（正确哈希 + 正确父骨 + 合理初始位置）
-③ 骨还需要在 skins 里占骨位
-```
-
-**判据**：补完之后，引擎侧能按名解析到它（而不是"名字表里有、但解析不到"）。
-
-### 2.3 每次改资产后必须做的校验 ✅ 已验证
-
-```
-· .bones 的"用现有名字重建 == 当前 body"逐字节自证
-· 场景图：名字哈希数组位置 = section + 4 + N*60 + N*64 + N*4
-· 头部：偏移 8 的名字哈希、偏移 29 的 body 长度
-· 依赖名字的数据表必须同步重算（否则会写到错的节点上，且引擎不报错）
-· 交给游戏侧资产注册器做最终校验（它会拒绝头部不一致的文件）
+Our arm chain 0.5821 m ｜ character arm chain 0.7312 m
+Our shoulder → character hand 0.6686 m
+⇒ margin = −8.64 cm   ★ out of reach
 ```
 
 ---
 
-## 3. 运行期：把动画搬到你的模型上
+## 2. Asset side: make the unit addressable by the engine
 
-### 3.1 按名（世界空间）重定位 ✅ 已验证可行
+### 2.1 Read the format ✅ verified
+See `docs/01-unit-format.md`. **Before you start, be sure to read §3.1 (local transform block = 36+12+12) and §3.4 (name hashes come after the parent/child table)**
+— those two points are the traps we fell into.
 
-**要点：**
-- **按名字**建立"我方骨 ↔ 角色骨"的对应（不要按索引 —— 索引会随资产重建漂移）
-- 用**世界空间**的姿态作为目标（这样能吸收两副骨架静置朝向的差异）
-- **只驱动能对上号的那批**；其余明确"随父骨刚性跟随"
+### 2.2 Fill in bone names and attachment points ✅ principle verified / ⚠️ tool not parameterized
 
-### 3.2 位置修正只允许"整体刚性平移" ✅ 已验证
+```
+① Add the name to the name table
+② Build the corresponding node in the scene graph (correct hash + correct parent bone + sensible initial position)
+③ The bone also needs to occupy a bone slot in skins
+```
 
-逐骨写位移 ⇒ 撕裂（实测 20.68%）；**整体刚性位移 ⇒ 撕裂 0**。
+**Criterion**: after filling it in, the engine side can resolve it by name (rather than "it is in the name table, but cannot be resolved").
 
-### 3.3 每帧成本与写骨竞争 ✅ 已验证现象
+### 2.3 Checks you must run after every asset change ✅ verified
 
-- 每帧 `Unit.node` 查找 + 写回有成本；**缓存键要用"单位对"，不要用单键**
-- 你写的骨与引擎写同一批骨时是"谁后写谁赢" ⇒ **要在引擎更新之后再写**
+```
+· .bones self-verification, byte for byte: "rebuild using the existing names == the current body"
+· Scene graph: name hash array position = section + 4 + N*60 + N*64 + N*4
+· Header: name hash at offset 8, body length at offset 29
+· Data tables that depend on names must be recomputed in step (otherwise you write to the wrong node, and the engine reports no error)
+· Hand it to the game-side asset registrar for the final check (it rejects files with an inconsistent header)
+```
 
 ---
 
-## 4. 武器：当前状态与尚未验证的部分
+## 3. Runtime: moving the animation onto your model
 
-### 4.1 已确认的事实 ✅
+### 3.1 Retarget by name (world space) ✅ verified feasible
+
+**Key points:**
+- Establish the "our bone ↔ character bone" correspondence **by name** (do not go by index — indices drift as the asset is rebuilt)
+- Use the **world-space** pose as the target (this absorbs the difference in rest orientation between the two skeletons)
+- **Drive only the ones that map**; make the rest explicitly "rigidly follow the parent bone"
+
+### 3.2 Position correction is only allowed as a "single rigid translation" ✅ verified
+
+Writing per-bone displacements ⇒ tearing (measured 20.68%); **a single rigid translation ⇒ tearing 0**.
+
+### 3.3 Per-frame cost and bone-write contention ✅ phenomenon verified
+
+- Per-frame `Unit.node` lookups + write-back have a cost; **the cache key must be the "unit pair", not a single key**
+- When the bones you write and the bones the engine writes are the same batch, it is "last writer wins" ⇒ **write after the engine has updated**
+
+---
+
+## 4. Weapons: current state and the parts not yet verified
+
+### 4.1 Confirmed facts ✅
 
 ```
-· 武器单位由游戏生成，并 link 到【角色】的挂点骨上（按名对位）
-· 武器的可见网格与【角色单位】的对象集合绑定：
-      关掉角色单位的网格对象  ⇒ 武器一起消失，而粒子效果不受影响
-      ⇒ 因此，写武器单位自己的局部姿态【不会有视觉变化】
-· 游戏只在第一人称或强制最高 LOD 时，才把 LOD 组设为静态 0 级
+· The weapon unit is generated by the game and linked to an attachment bone on the 【character】 (matched by name)
+· The weapon's visible mesh is bound to the 【character unit】's object set:
+      turn off the character unit's mesh object  ⇒ the weapon disappears together with it, while particle effects are unaffected
+      ⇒ therefore, writing the weapon unit's own local pose 【produces no visual change】
+· The game only sets the LOD group to static level 0 in first person or when the maximum LOD is forced
 ```
 
-### 4.2 尚未定论的两条 ⚠️ **不要当成已否掉**
+### 4.2 Two points not yet settled ⚠️ **do not treat these as already ruled out**
 
-| 做法 | 状态 |
+| Approach | Status |
 |---|---|
-| 把武器单位**改挂**到我们模型自己的挂点（unlink → link） | ⚠️ 未定论（此前的否定结论是在"武器本来就不可见"的干扰状态下得到的） |
-| 每帧写武器的局部姿态，使其出现在我们手上 | ⚠️ 未定论（同样被干扰） |
+| **Re-parenting** the weapon unit to our own model's attachment point (unlink → link) | ⚠️ undetermined (the earlier negative conclusion was obtained under an interfering condition where "the weapon was invisible to begin with") |
+| Writing the weapon's local pose every frame so that it appears in our hands | ⚠️ undetermined (likewise interfered with) |
 
-**⇒ 我们把这个区别明确写出来，是因为"已证伪"与"未定论"对你要不要试，是两个完全不同的答案。**
+**⇒ We spell this distinction out because "falsified" and "undetermined" are two completely different answers to the question of whether you should try it.**
 
-### 4.3 关键前提（我们踩了很久才定位）✅
+### 4.3 A key precondition (it took us a long time to pin down) ✅
 
-**如果你在隐藏原版角色的身体，请确认你的隐藏方式不会连带藏掉武器：**
+**If you are hiding the original character's body, make sure your hiding method does not hide the weapon along with it:**
 
 ```
-· 用【按槽】隐藏（只隐藏身体/装备槽的单位）        → 武器不受影响
-· 用【关掉角色单位自己的网格对象】这一种方式       → ★ 武器会一起消失
+· Hiding 【by slot】 (hiding only the body/equipment-slot units)        → the weapon is unaffected
+· Using the 【turn off the character unit's own mesh object】 method       → ★ the weapon disappears together with it
 ```
 
-**⇒ 这个差别我们花了很多轮才定位；如果你遇到"武器的网格不见了、但粒子还在"，
-先查这一条。**
+**⇒ This difference took us many rounds to pin down; if you run into "the weapon's mesh is gone, but the particles are still there",
+check this one first.**
 
 ---
 
-## 5. 一条排错次序（按我们自己的经验排的，能省最多时间）
+## 5. A troubleshooting order (ordered by our own experience; saves the most time)
 
 ```
-1. 先走【原版路径】：武器怎么生成、谁在显示它、谁在隐藏它
-   —— 不要从你自己的代码注释去推断引擎行为
-2. 再建立"原版状态 vs 你的状态"的【最小差异表】
-3. 然后才做【单变量】改动
-   —— 如果当前状态本身有干扰变量（比如某东西本来就没显示），
-      那么这一步得到的否定结论【不可用】
-4. 每一步都要有【可判定】的日志字符串
-   —— 运行期"什么都不做"不报错，会被你误读成"被隐藏了"
-5. 按【名字】寻址，不要按索引
+1. First walk the 【vanilla path】: how the weapon is generated, who displays it, who hides it
+   —— do not infer engine behaviour from the comments in your own code
+2. Then build a 【minimal difference table】 of "vanilla state vs your state"
+3. Only then make 【single-variable】 changes
+   —— if the current state itself contains an interfering variable (for example, something was not being displayed to begin with),
+      then a negative conclusion obtained at this step is 【unusable】
+4. Every step needs a 【decidable】 log string
+   —— at runtime "doing nothing" reports no error, and you will misread it as "it was hidden"
+5. Address things 【by name】, not by index
 ```
 
 ---
 
-## 6. 诚实清单：本配方**没有**覆盖的
+## 6. Honesty checklist: what this recipe does **not** cover
 
-| 项 | 状态 |
+| Item | Status |
 |---|---|
-| 参数化工具链 | ⚠️ 未就绪（原型脚本为单一模型硬编码） |
-| 模型资产的转换流水线 | ⚠️ 未就绪 |
-| 新增节点后 `skins` 的完整同步规则 | 部分验证 |
-| 动画状态机 / `flow` 对自定义单位的作用 | 未验证 |
-| 极限姿态下的全套表现 | 部分现象已修，机制未完全拆解 |
-| 第三人称武器的最终方案 | ⚠️ 未定论（见 §4.2） |
+| Parameterized toolchain | ⚠️ not ready (the prototype scripts are hard-coded for a single model) |
+| Model asset conversion pipeline | ⚠️ not ready |
+| Complete synchronization rules for `skins` after adding nodes | partially verified |
+| Effect of the animation state machine / `flow` on custom units | unverified |
+| The full set of behaviours at extreme poses | some symptoms fixed, the mechanism not fully broken down |
+| A final solution for third-person weapons | ⚠️ undetermined (see §4.2) |
 
-**⇒ 这份清单故意写全。** 你按它判断"哪些能用"，比按一份看起来完整的指南去试，代价小得多。
+**⇒ This checklist is deliberately complete.** Judging "what you can rely on" from it costs you far less than trying things out from a guide that looks complete.

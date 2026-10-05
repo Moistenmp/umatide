@@ -1,175 +1,175 @@
-# 03 · 已被证伪的路径
+# 03 · Paths That Have Been Falsified
 
-> **这份文档的目的是省时间：下面每一条都有人花过代价走过、并被证据否掉。**
+> **The purpose of this document is to save time: every item below was walked by someone at a cost, and was struck down by evidence.**
 >
-> **每条给出：做了什么 → 观察到什么 → 为什么否掉 → 判据类型。**
-> `[实测]` = 实机；`[字节]` = 资产层测量；`[代数]` = 可推导。
+> **Each item gives: what was done → what was observed → why it was struck down → the kind of evidence.**
+> `[observed]` = on the running game; `[bytes]` = measurement at the asset layer; `[algebraic]` = derivable.
 
 ---
 
-## A. 运行期"让我们的骨架去够游戏接触点"
+## A. Runtime "make our skeleton reach for the game's contact points"
 
-**做了什么**：每帧解 IK，把我们的手/脚送到游戏骨架对应的手/脚位置
-（两骨解析解，数学上曾被验证到 `5.7e-17` 的精度）。
+**What was done**: solve IK every frame, sending our hands/feet to the hand/foot positions of the corresponding game bones
+(two-bone analytic solution, which was at one point verified mathematically to a precision of `5.7e-17`).
 
-**观察到什么**：
+**What was observed**:
 
 ```
-我方臂链总长            0.5821 m
-角色臂链总长            0.7312 m        ⇒ 差 −14.91 cm
-我方肩 → 角色手（武器所在） 0.6686 m
-⇒ 余量 = 0.5821 − 0.6686 = −8.64 cm   ★ 够不到
+our arm chain total length             0.5821 m
+character arm chain total length       0.7312 m        ⇒ difference −14.91 cm
+our shoulder → character hand (where the weapon is)  0.6686 m
+⇒ margin = 0.5821 − 0.6686 = −8.64 cm   ★ cannot reach
 ```
 
-**为什么否掉**：**这不是实现问题，是几何问题。** 当两副骨架的肢体长度差超过余量时，
-IK 无解；强行求解只会产生拉扯、关节角度崩坏。
-`[字节]`（用两侧资产的静置链长实测，与子分段无关）
+**Why it was struck down**: **this is not an implementation problem, it is a geometry problem.** When the limb-length difference between the two skeletons exceeds the margin,
+IK has no solution; forcing a solution only produces stretching and collapsing joint angles.
+`[bytes]` (measured with the rest-pose chain lengths of the assets on both sides; independent of sub-segmentation)
 
-**⇒ 这一条之所以珍贵**：它把一个"看起来是代码 bug"的问题，还原成了"不可行的几何约束"。
-
----
-
-## B. 把角色的 `local_position` 写到我们同名骨上（"下半身跟随"）
-
-**做了什么**：运行期读角色骨的 `local_position`，写进我方同名骨。
-
-**观察到什么**：**实机证伪**，整段移除，并加了硬闸门防止误开。
-
-**为什么否掉**：
-- 两副骨架的**局部轴系与静置变换不同** ⇒ 直接搬运局部量会得到错误的世界位姿
-- 与"地面吸附"那一路互相打架（两者都在写下半身）
-
-**⇒ 正确做法**：末端落位用**纯世界位移**（整体刚性平移），中间骨按父世界旋转传递。
-`[实测]`
+**⇒ Why this item is valuable**: it reduces a problem that "looks like a code bug" back to "an infeasible geometric constraint".
 
 ---
 
-## C. 逐骨写 `local_position`（对我们自己的骨）
+## B. Writing the character's `local_position` onto our bones of the same name ("lower body follows")
 
-**做了什么**：为对齐位置，对多根骨分别写局部位移。
+**What was done**: at runtime, read the character bone's `local_position` and write it into our bone of the same name.
 
-**观察到什么**：**撕裂 20.68%**（顶点相对关系被破坏）。
+**What was observed**: **falsified on the running game**, the whole block was removed, and a hard gate was added to prevent it from being switched on by accident.
 
-**为什么否掉**：逐骨位移等于对骨架做了**非刚性变形**；
+**Why it was struck down**:
+- The two skeletons have **different local axis systems and rest transforms** ⇒ copying local quantities directly yields a wrong world pose
+- It fights with the "ground snapping" line of work (both write the lower body)
 
-**⇒ 而单个"整体刚性 δ"是撕裂为 0 的**（同一批数据上实测）。`[代数][字节]`
-
-**⇒ 结论**：对骨架做位置修正时，**只允许一个整体平移**，不允许逐骨写位移。
-
----
-
-## D. 用"完整角色 unit"替换游戏的身体 unit
-
-**做了什么**：把游戏玩家第三人称身体 unit 替换成我们的完整角色 unit。
-
-**观察到什么**：**两次引擎级崩溃**（无 Lua 报错）。
-
-**为什么否掉**：
-1. 游戏的玩家身体 unit 是一个 **rig**（`skins` 为空、有网格几何），不是一个带蒙皮的角色
-2. 我们替换进去的 unit 带 329 个骨位，而引擎的动画不变量是
-   **「动画轨道数必须等于骨架骨位数」** ⇒ 两者不匹配
-3. 可见的身体网格其实来自**装备物品 unit**（上/下身装备），不是身体 unit 本身
-
-`[字节][实测]`
+**⇒ The correct approach**: do end-effector placement with a **pure world translation** (a single rigid translation of the whole), with intermediate bones carried by the parent world rotation.
+`[observed]`
 
 ---
 
-## E. 把"补进来的骨名"改名（以为它们在和角色重名冲突）
+## C. Writing `local_position` per bone (on our own bones)
 
-**做了什么**：把为补全骨架而加入的 89 个骨名（`ap_*`、IK 目标、瞄具/弹匣/枪口等）统一加前缀。
+**What was done**: to align positions, write local translations on several bones individually.
 
-**观察到什么**：**改了之后问题依旧** ⇒ "名字冲突"假设不成立。
+**What was observed**: **tearing of 20.68%** (vertex-relative relationships broken).
 
-**为什么否掉**：
-- 命名方向的真正依据是：**这类名字是引擎按名寻址的入口**，
-  而不是冲突源。改名等于**把引擎要找的东西挪走**。
-- 同源引擎（Source）侧的对照也支持这点：成熟改模会**声明**这些点位，而不是回避它们。
+**Why it was struck down**: per-bone translation amounts to a **non-rigid deformation** of the skeleton;
 
-`[实测][跨引擎对照]`
+**⇒ whereas a single "global rigid δ" gives tearing of 0** (measured on the same batch of data). `[algebraic][bytes]`
 
-**⇒ 留下的教训**：**在改任何"看起来多余"的名字之前，先确认它是不是某个系统的寻址键。**
+**⇒ Conclusion**: when correcting the position of a skeleton, **only a single global translation is permitted**; per-bone translations are not.
 
 ---
 
-## F. 在第三人称下无条件设 LOD 组为静态 0 级
+## D. Replacing the game's body unit with a "complete character unit"
 
-**做了什么**：登记 LOD 对象后，无条件调 `LODGroup.set_static_select(group, 0)`。
+**What was done**: replace the game's player third-person body unit with our complete character unit.
 
-**观察到什么**：与游戏原生行为不一致。
+**What was observed**: **two engine-level crashes** (no Lua error).
 
-**为什么否掉**：游戏原生**只在第一人称或强制最高 LOD 时**才这么做；
-第三人称正常流程**不做**这一步。无条件做等于强行锁定 LOD 级别。`[源码][实测]`
+**Why it was struck down**:
+1. The game's player body unit is a **rig** (`skins` empty, with mesh geometry), not a skinned character
+2. The unit we substituted in carries 329 bone slots, while the engine's animation invariant is
+   **"the number of animation tracks must equal the number of skeleton bone slots"** ⇒ the two do not match
+3. The visible body mesh actually comes from the **equipment item units** (upper/lower body equipment), not from the body unit itself
 
----
-
-## G. 被证伪的一个**前提**（不是路径，但代价最大）
-
-**曾经的前提**：「武器的网格属于武器单位，所以移动武器单位就能移动它。」
-
-**被证伪的证据**：把**角色单位**的网格对象关掉后，**武器也跟着消失**（粒子不受影响）。
-
-**⇒ 真正的机制**：武器的可见对象与**角色单位**的对象集合绑定在一起。
-**⇒ 直接后果**：写武器单位自己的局部姿态**不会有任何视觉变化**。`[实测]`
-
-**⇒ 这一条解释了此前一大批"设置了但没反应"的尝试。**
+`[bytes][observed]`
 
 ---
 
-## H. 状态未定的两条（**不要当成"已证伪"**）
+## E. Renaming the "bones added in" (on the assumption that they were colliding by name with the character)
 
-| 做法 | 状态 | 说明 |
+**What was done**: prefix uniformly the 89 bone names added in order to complete the skeleton (`ap_*`, IK targets, sights/magazine/muzzle, etc.).
+
+**What was observed**: **the problem remained after the change** ⇒ the "name collision" hypothesis does not hold.
+
+**Why it was struck down**:
+- The real basis for the naming direction is: **these names are entry points that the engine addresses by name**,
+  not a source of collision. Renaming amounts to **moving away the very things the engine is looking for**.
+- A comparison on a same-family engine (Source) supports this: mature model replacements **declare** these points rather than avoid them.
+
+`[observed][cross-engine comparison]`
+
+**⇒ The lesson retained**: **before renaming anything that "looks redundant", first confirm whether it is an addressing key for some system.**
+
+---
+
+## F. Unconditionally setting the LOD group to static level 0 in third person
+
+**What was done**: after registering the LOD object, unconditionally call `LODGroup.set_static_select(group, 0)`.
+
+**What was observed**: inconsistent with the game's native behavior.
+
+**Why it was struck down**: the game natively does this **only in first person or when the highest LOD is forced**;
+the normal third-person flow **does not** take this step. Doing it unconditionally amounts to forcibly pinning the LOD level. `[source][observed]`
+
+---
+
+## G. A **premise** that was falsified (not a path, but the most expensive of all)
+
+**The former premise**: "the weapon's mesh belongs to the weapon unit, so moving the weapon unit moves it."
+
+**The evidence that falsified it**: after switching off the **character unit's** mesh object, **the weapon disappeared along with it** (particles unaffected).
+
+**⇒ The actual mechanism**: the weapon's visible object is bound together with the **character unit's** object set.
+**⇒ Direct consequence**: writing the weapon unit's own local pose **produces no visual change whatsoever**. `[observed]`
+
+**⇒ This item explains a whole earlier batch of attempts that "were set but produced no reaction".**
+
+---
+
+## H. Two items whose status is undetermined (**do not read these as "falsified"**)
+
+| Approach | Status | Notes |
 |---|---|---|
-| **把武器单位改挂到我们的挂点**（unlink → link 到我们的节点） | ⚠️ **未定论** | 曾经判为"打断渲染"，但那批测试是在**上面 G 的不可见状态**下做的 ⇒ 结论无效，正在重测 |
-| **每帧写武器的局部姿态**使其出现在我们手上 | ⚠️ **未定论** | 同样被 G 掩盖；单独看"无反应"不能判定它无效 |
+| **Re-parenting the weapon unit to our attachment point** (unlink → link to our node) | ⚠️ **undetermined** | It was once judged to "break rendering", but that batch of tests was done **under the invisible state of G above** ⇒ the conclusion is void, and it is being retested |
+| **Writing the weapon's local pose every frame** so that it appears in our hands | ⚠️ **undetermined** | Likewise masked by G; "no reaction" considered on its own cannot establish that it is ineffective |
 
-**⇒ 我们把它们标成"未定论"，而不是"已否掉"——因为这个区别会影响别人要不要试。**
-**⇒ 这也是我们犯过的一个方法错误：在"有其它干扰变量"的状态下测出的否定结论是不可靠的。**
+**⇒ We mark these as "undetermined" rather than "struck down" — because that distinction affects whether someone else should try them.**
+**⇒ This is also a methodological mistake we made: a negative conclusion measured in a state "with other confounding variables" is unreliable.**
 
 ---
 
-## I. 方法论层面的证伪（同样值钱）
+## I. Falsifications at the methodological level (equally valuable)
 
-| 做法 | 为什么错 | 代价 |
+| Practice | Why it is wrong | Cost |
 |---|---|---|
-| **从我们自己的代码注释推断引擎行为** | 注释可能写反（我们遇到过一条把参数语义写反的注释，据此加的守卫反而遮蔽了真因） | 数轮 |
-| **先改运行期，再问"原版怎么做"** | 原版路径才是基线；不先读原版，就会一路追症状 | 数轮 |
-| **在有干扰变量的状态下做单变量判定** | 见 H：得到的否定结论不可用 | 数轮 |
-| **按数组索引而不是按名字寻址** | 索引随资产重建漂移（改一次资产，全部索引错位） | 已致事故 |
-| **静默失败** | 运行期分支"什么都不做"不报错 ⇒ 会被误读成"被隐藏了" | 数轮 |
+| **Inferring engine behavior from our own code comments** | a comment may be written backwards (we encountered a comment that reversed the semantics of a parameter, and the guard added on that basis in fact obscured the real cause) | several rounds |
+| **Changing the runtime first, then asking "how does the original do it"** | the original path is the baseline; without reading the original first, you end up chasing symptoms all the way | several rounds |
+| **Making a single-variable determination in a state that has confounding variables** | see H: the negative conclusion obtained is unusable | several rounds |
+| **Addressing by array index instead of by name** | indices drift as assets are rebuilt (change an asset once and every index is out of place) | has already caused an incident |
+| **Silent failure** | a runtime branch that "does nothing" raises no error ⇒ it gets misread as "it was hidden" | several rounds |
 
-**⇒ 结论**：**先读原版、先建最小差异表、再动手**；每一步都要有**可判定的日志**。
-
----
-
-## J. 如果你只想记一件事
-
-**⇒ 接触点（手、脚）的位置由"骨长"决定；而武器的可见网格绑定在游戏角色的骨架上。**
-
-```
-⇒ 想"保模型原始比例" + "接触点完全正确" ⇒ 在本文所涉引擎里【不可兼得】（见 K）
-⇒ 只能选：① 让模型的骨架比例对齐游戏（社区/官方做法），或
-          ② 保留比例并接受接触点差量，或
-          ③ 混合：只把四肢骨长对齐游戏（躯干/头/发/服装保留）
-```
-
-**⇒ K 是这条论断的量化依据。**
+**⇒ Conclusion**: **read the original first, build a minimal difference table first, then act**; every step needs a **decidable log**.
 
 ---
 
-## K. 为什么"保比例 + 接触点正确"不可兼得（形式化）
+## J. If you remember only one thing
+
+**⇒ The positions of the contact points (hands, feet) are determined by "bone length"; whereas the weapon's visible mesh is bound to the game character's skeleton.**
 
 ```
-接触点位置  ← 由骨长决定
-蒙皮不拉伸  ← 要求骨长与模型自身绑定一致（否则静置姿态下网格就被拉伸）
-⇒ 两条要求在同一副骨架上互斥
+⇒ Wanting "keep the model's original proportions" + "contact points exactly correct" ⇒ in the engine this document concerns, the two [cannot both be had] (see K)
+⇒ The only options: ① align the model's skeleton proportions to the game (the community/official practice), or
+                   ② keep the proportions and accept a contact-point discrepancy, or
+                   ③ hybrid: align only the limb bone lengths to the game (torso/head/hair/clothing kept)
 ```
 
-**⇒ 同源对照**：Source 侧之所以能做到"模型自己的比例 + 武器正确"，
-是因为**武器的挂点由模型自己声明**，而 IK 链也写在模型里 ——
-**引擎读的是"模型自己的骨"**。
+**⇒ K is the quantitative basis for this claim.**
 
-**⇒ 而本文所涉引擎的武器网格绑定在**游戏角色的骨架**上**
-⇒ 于是"模型自己的比例"在这里换不来"武器在模型自己手上"。
+---
 
-**⇒ 若要让模型比例与原版骨架同时成立，只有一条路：
-把模型的骨架**改成**与游戏骨架一致的骨长（即放弃"原始比例"这个目标）。**
+## K. Why "keep proportions + correct contact points" cannot both be had (formalized)
+
+```
+contact point positions   ← determined by bone lengths
+skin does not stretch     ← requires that bone lengths agree with the model's own binding (otherwise the mesh is stretched even in the rest pose)
+⇒ the two requirements are mutually exclusive on one and the same skeleton
+```
+
+**⇒ Same-family comparison**: the reason the Source side can achieve "the model's own proportions + a correct weapon"
+is that **the weapon's attachment point is declared by the model itself**, and the IK chain is written inside the model too —
+**the engine reads "the model's own bones"**.
+
+**⇒ But in the engine this document concerns, the weapon mesh is bound to the game character's skeleton**
+⇒ and so "the model's own proportions" here cannot buy you "the weapon in the model's own hands".
+
+**⇒ If the model's proportions and the original skeleton are to hold at the same time, there is only one road:
+change the model's skeleton **into** bone lengths consistent with the game skeleton (that is, give up the goal of "original proportions").**

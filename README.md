@@ -1,77 +1,91 @@
 # umatide
 
-**面向 Darktide（暗潮）的外部角色模型导入工具链。** 目前处于**自用阶段**。
+**A toolchain for importing external character models into Darktide.**
 
-> 这不是一个"换了模型的成品 mod"。它记录的是**怎么把外部模型接进 Darktide 那套引擎家族**：
-> 单位（unit）资源格式、骨名与挂点的可寻址要求、骨架完整性、以及**哪些路走不通**。
+Status: **personal / early.** Not a finished mod, and not a "drop-in model replacement".
 
----
-
-## 一、它解决的是哪个问题
-
-Darktide 用的是 Stingray/Bitsquid 引擎家族。把外部模型（如 MMD/PMX 来源的角色）接进去，
-真正的难点**不在写代码**，而在于**没人公开过这套格式与约定**：
-
-- 单位资源的二进制布局（分区、名字哈希、局部变换块）
-- **引擎家族的一条规范：挂点与骨名必须可寻址**（等价于 Source 引擎的 `$attachment`）
-- **骨架完整性**：缺骨名 ⇒ 引擎自己的武器动画、脚部 IK、手部 IK **全都无从作用**
-- **哪些方案已经被实机证伪**（运行期 IK 硬补、换父、改骨名）
-
-本仓库把以上内容整理成**可复核的事实**，并逐步附上**参数化后的工具**。
+What it actually contains is the part that is usually missing: **how to get an external model
+into this engine family at all** — the unit resource format, the engine's name-addressability
+requirement, skeleton completeness, and **a record of the approaches that do not work**.
 
 ---
 
-## 二、目录
+## 1. The problem this addresses
+
+Darktide runs on the Stingray/Bitsquid engine family. Importing an external character model
+(for example a model originating from a PMX/MMD workflow) is **not primarily a coding problem**.
+The hard part is that **nobody has published the format and the conventions**:
+
+- the binary layout of a unit resource (sections, name hashes, the local transform block)
+- a convention of this engine family: **attachment points and bone names must be addressable**
+  (the equivalent of a `$attachment` declaration in Source-engine models)
+- **skeleton completeness**: a missing bone name means the engine's own weapon animation,
+  foot IK and hand IK **have nothing to act on**
+- **which approaches have already been tried and disproven** (runtime IK compensation,
+  re-parenting, renaming bones)
+
+This repository turns the above into **checkable facts**, and will gradually add
+**parameterized tools**.
+
+---
+
+## 2. Layout
 
 ```
 docs/
-  01-unit-format.md            单位资源格式（分区、哈希、局部变换块、名字解析）
-  02-skeleton-completeness.md  骨架完整性：缺骨名的后果（三类系统按名寻址）
-  03-falsified-paths.md        已证伪的路径（含证据与判据）
-  04-cross-engine-ref.md       同源引擎参照（Source 侧的挂点与 IK 链）
-  05-reproduce.md              从零复现的最小配方（标注"已验证/未验证"）
-tools/                         参数化工具（**尚未就绪**，见下）
-NOTICE.md                      版权与来源边界——**先读这份**
+  01-unit-format.md            Unit resource format: sections, hashes, local transform block, name resolution
+  02-skeleton-completeness.md  What missing bone names actually break (three systems resolve names)
+  03-falsified-paths.md        Approaches already disproven — with evidence and criteria
+  04-cross-engine-ref.md       Comparison with the sibling engine family's conventions
+  05-reproduce.md              Minimal reproduction recipe, marked verified / unverified
+  zh/                          Chinese originals of the above (working notes, kept as-is)
+tools/                         Parameterized tools — **not ready yet**, see below
+NOTICE.md                      Copyright and scope boundaries — **read this first**
 ```
 
-> **`tools/` 现在故意留空。**
-> 原型脚本是为单一模型写的（硬编码模型名与路径），直接放出来只会变成"看不懂的谜之脚本"。
-> 等它们**改成配置驱动**（换模型不改代码）之后再进来。**宁可慢，不要误导。**
+> **`tools/` is intentionally empty for now.**
+> The prototypes were written for a single model (hardcoded model names and paths).
+> Publishing them as-is would only produce scripts nobody can follow.
+> They will be added once they are configuration-driven — **swapping in another model
+> should not require editing code.** Better late than misleading.
 
 ---
 
-## 三、状态与边界（请如实对待）
+## 3. Status, honestly
 
-| 项 | 状态 |
+| Item | Status |
 |---|---|
-| 单位资源格式（分区布局、哈希、名字解析） | ✅ 已逐字节复核 |
-| 名字可寻址这条规范 | ✅ 已复核（含跨引擎对照） |
-| 骨架完整性的后果 | ✅ 已复核（离线 + 实机现象一致） |
-| 已证伪路径清单 | ✅ 有实机证据 |
-| **3P（第三人称）武器精确就位** | ⚠️ **未完成**，见 `docs/05-reproduce.md` |
-| 参数化工具链 | ⚠️ **未就绪** |
-| 模型资产的转换流水线 | ⚠️ **未就绪** |
+| Unit resource layout (sections, hashes, name resolution) | ✅ verified byte-by-byte |
+| The name-addressability convention | ✅ verified, incl. cross-engine comparison |
+| Consequences of an incomplete skeleton | ✅ verified (offline + matches observed in-game behavior) |
+| List of disproven approaches | ✅ has in-game evidence |
+| **Third-person weapon placement** | ⚠️ **not finished** — see `docs/05-reproduce.md` §4 |
+| Parameterized toolchain | ⚠️ **not ready** |
+| Model asset conversion pipeline | ⚠️ **not ready** |
 
-**⇒ 本仓库**不含**任何游戏资源、反编译源码或模型资产。见 `NOTICE.md`。**
-
----
-
-## 四、给想要复现的人
-
-1. 先读 `NOTICE.md`（边界）
-2. 再读 `docs/01-unit-format.md`（你会需要的格式事实）
-3. 然后读 `docs/03-falsified-paths.md`（**能省下你最多时间的一份**：我们已经走过并否掉的路）
-4. 最后看 `docs/05-reproduce.md` 的配方与其中的"未验证"标注
-
-**⇒ 本仓库按"现状"提供，不承诺支持。** 但如果你在复现中遇到问题，
-**请在 issue 里贴出你观察到的现象与日志**——事实比结论有用。
+**⇒ This repository ships no game assets, no decompiled source, and no model assets. See `NOTICE.md`.**
 
 ---
 
-## 五、关于辅助工具的使用
+## 4. If you want to reproduce this
 
-本仓库的内容在开发过程中使用了 AI 辅助（逆向、脚本、文档整理）。
-**事实部分均可独立复核**：每个结论都尽量附上判据（字节、偏移、日志、对照）。
+1. Read `NOTICE.md` first (scope).
+2. Read `docs/01-unit-format.md` (the format facts you will need).
+3. Read `docs/03-falsified-paths.md` — **this one saves the most time.** It is the list of
+   roads already walked and closed.
+4. Then use `docs/05-reproduce.md`, paying attention to the `verified` / `unverified` markers.
 
-如果你发现任何一条结论**不成立**，请直接指出，并附上你的证据。
-**我们要的是能站住的事实，不是好看的说法。**
+**⇒ Provided as-is, with no support commitment.** If you hit a problem while reproducing this,
+please open an issue with **what you observed and your logs** — observations are worth more than
+conclusions here.
+
+---
+
+## 5. On how this was produced
+
+Parts of this work were developed with AI assistance (reverse engineering, scripts, documentation).
+**The factual claims are meant to be independently checkable** — each conclusion carries its
+criteria where possible (byte offsets, measured values, observed behavior, algebra).
+
+If you find a claim that **does not hold**, say so and bring your evidence.
+**We would rather have facts that survive scrutiny than a tidy story.**

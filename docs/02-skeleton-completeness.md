@@ -1,71 +1,71 @@
-# 02 · 骨架完整性：缺骨名的后果
+# 02 · Skeleton Completeness: The Cost of Missing Bone Names
 
-> **一句话**：在这个引擎家族里，**骨名是"系统入口"**。
-> 缺一个名字，不只是少一根骨 —— 是**对应的整套引擎功能对这个模型失效**。
-
----
-
-## 1. 起因：一个能对上号、但驱动不起来的模型
-
-把外部模型接进来时，常见做法是**只处理"看起来像主形变骨"的那批**，其余不管。
-
-实测代价（我们自己的数字）：
-
-```
-我方骨名表（补过 2 条后）   227
-游戏角色骨名表             167
-角色有、我方缺             101      ← ★ 问题在这里
-我方有、角色没有           161      （模型专属骨，正常）
-```
-
-**⇒ 关键不是"缺了 101 个"，而是"缺的是哪些"。**
+> **In one line**: in this engine family, **a bone name is a "system entry point"**.
+> Missing one name is not just one missing bone — it means **the entire corresponding engine feature stops working for that model**.
 
 ---
 
-## 2. 缺的是**成套的、有语义的系统**
+## 1. Origin: A Model That Matches Up But Cannot Be Driven
 
-### 2.1 武器动画骨族（各带 `_offhand` 镜像）
+When bringing in an external model, the common approach is to **handle only the batch that "looks like the main deformation bones"** and leave the rest alone.
 
-| 族 | 数量 | 语义 |
+Observed cost (our own numbers):
+
+```
+Our bone name table (after patching 2 entries)   227
+Game character bone name table                   167
+Present in character, missing on our side        101      ← ★ the problem is here
+Present on our side, absent in character         161      (model-specific bones, normal)
+```
+
+**⇒ The key point is not "101 are missing", it is "which ones are missing".**
+
+---
+
+## 2. What Is Missing Is a **Coherent, Semantic System**
+
+### 2.1 Weapon Animation Bone Families (each with an `_offhand` mirror)
+
+| Family | Count | Semantics |
 |---|---:|---|
-| `ap_anim_01..10` | 10 (+10) | 通用动画部件 |
-| `ap_bullet_01/02` | 2 (+2) | 弹壳 / 子弹生成点 |
-| `ap_magazine_01/02` | 2 (+2) | **弹匣**（换弹动画） |
-| `ap_recharge_01..03` | 3 (+3) | 拉机柄 |
-| `ap_release_01..04` | 4 (+4) | 弹匣释放 |
-| `ap_safety_01/02` | 2 (+2) | 保险 / 快慢机 |
-| `ap_sight_01/02` | 2 (+2) | 瞄具 |
-| `ap_stock_01/02` | 2 (+2) | 枪托 |
-| `ap_trigger_01/02` | 2 (+2) | 扳机 |
-| `ap_underbarrel_01` | 1 (+1) | 下挂 |
-| `j_trail_01..04` | 4 (+4) | 弹道拖尾 |
+| `ap_anim_01..10` | 10 (+10) | Generic animation parts |
+| `ap_bullet_01/02` | 2 (+2) | Shell / bullet spawn points |
+| `ap_magazine_01/02` | 2 (+2) | **Magazine** (reload animation) |
+| `ap_recharge_01..03` | 3 (+3) | Charging handle |
+| `ap_release_01..04` | 4 (+4) | Magazine release |
+| `ap_safety_01/02` | 2 (+2) | Safety / fire selector |
+| `ap_sight_01/02` | 2 (+2) | Sights |
+| `ap_stock_01/02` | 2 (+2) | Stock |
+| `ap_trigger_01/02` | 2 (+2) | Trigger |
+| `ap_underbarrel_01` | 1 (+1) | Underbarrel |
+| `j_trail_01..04` | 4 (+4) | Projectile trail |
 
-**⇒ 缺这一族 ⇒ 引擎无法按名寻址任何武器动画骨。**
+**⇒ Missing this family ⇒ the engine cannot address any weapon animation bone by name.**
 
-### 2.2 IK 骨族 —— **这是脚部与手部对位的官方机制**
+### 2.2 The IK Bone Family — **This Is the Official Mechanism for Foot and Hand Placement**
 
 ```
-j_foot_grounded                                    ← 脚贴地标记
+j_foot_grounded                                    ← foot-grounded marker
 j_left_foot_ik / j_right_foot_ik
 j_*_foot_ik_transform / _ik_orient_ref / _ik_orient_transform
-j_*_foot_pv                                        ← pole vector（极向量）
+j_*_foot_pv                                        ← pole vector
 j_*_foot_anim_ref
 j_left_hand_ik / j_right_hand_ik / _hand_ik_transform / _hand_pv
 ```
 
-**⇒ 缺 `j_*_foot_ik` / `j_foot_grounded` / `*_pv` ⇒ 引擎自己的脚部 IK 无从作用**（表现为脚底悬浮或陷地）。
-**⇒ 缺 `j_*_hand_ik` / `_pv` ⇒ 手部 IK 同样无从作用**（表现为手与武器对不上）。
+**⇒ Missing `j_*_foot_ik` / `j_foot_grounded` / `*_pv` ⇒ the engine's own foot IK has nothing to act on** (it shows up as feet floating or sinking into the ground).
+**⇒ Missing `j_*_hand_ik` / `_pv` ⇒ hand IK likewise has nothing to act on** (it shows up as the hands not lining up with the weapon).
 
-### 2.3 瞄准 / 参照骨族
+### 2.3 Aim / Reference Bone Family
 
 ```
 j_aim_target     j_hub_head_aim     j_hub_torso_aim
 j_hips_ref       j_frontchestplate  j_backchestplate
 ```
 
-**⇒ 缺参照骨 ⇒ 没有稳定的参照系**（表现为极限姿态下的异常位移）。
+**⇒ Missing reference bones ⇒ no stable frame of reference** (it shows up as abnormal displacement in extreme poses).
 
-### 2.4 滚转骨（通常只补了一部分）
+### 2.4 Roll Bones (Usually Only Partially Patched)
 
 ```
 j_leftforearmroll1/2   j_rightforearmroll1/2   j_leftlegroll1 …
@@ -73,60 +73,60 @@ j_leftforearmroll1/2   j_rightforearmroll1/2   j_leftlegroll1 …
 
 ---
 
-## 3. 因此：一堆"独立症状"其实是同一个根因的不同侧面
+## 3. Therefore: A Bunch of "Independent Symptoms" Are Really Different Faces of One Root Cause
 
-| 一直在单独修的现象 | 真正的缺失 |
+| Symptom being fixed separately all along | The actual missing piece |
 |---|---|
-| 武器不入手 / 不在掌心 | `ap_*` + `j_trail_*` 骨族缺失 |
-| 脚底悬浮 / 陷地 | `j_*_foot_ik` / `j_foot_grounded` / `*_pv` 缺失 |
-| 手与武器对不上 | `j_*_hand_ik` / `_pv` 缺失 |
-| 极限姿态位移异常 | `j_hips_ref` / IK 参照骨缺失 |
+| Weapon not seating in the hand / not in the palm | `ap_*` + `j_trail_*` bone families missing |
+| Feet floating / sinking into the ground | `j_*_foot_ik` / `j_foot_grounded` / `*_pv` missing |
+| Hands not lining up with the weapon | `j_*_hand_ik` / `_pv` missing |
+| Abnormal displacement in extreme poses | `j_hips_ref` / IK reference bones missing |
 
-**⇒ 如果没有这一步，接下来的每一步都会变成"在运行期手写补偿一个本该由引擎按名驱动的东西"。**
-**⇒ 这就是"为什么修完一个又冒一个"的机械原因。**
-
----
-
-## 4. 补齐时的三条设计对齐（来自同源引擎的对照）
-
-**① 没有动画源的骨应当"只做父骨跟随"**
-成熟改模的骨数常常远多于原版（例如 126 vs 73）。多出来的骨在原版里**没有对应动画**，
-它们的处理是**跟着父骨刚性走**，而不是给它们编目标值。
-
-**⇒ 对我们同样成立**：只驱动能对上号的那批；其余明确地"随父骨刚性跟随"，
-**而不是任由它们停在静置姿态**。
-
-**② IK 是"链"，不是"几根骨"**
-同源引擎的 IK 是按 `$ikchain`（整条链）声明的。
-
-**⇒ 下半身跟随应按链枚举**（髋 → 腿 → 脚 → 趾），并明确**每根链的末端**才是落位目标。
-
-**③ 落位用"纯世界位移"，不是逐骨位移**
-见 `03-falsified-paths.md` §C：逐骨位移会撕裂（实测 20.68%），整体刚性位移撕裂为 0。
+**⇒ Without this step, every following step turns into "hand-writing a runtime compensation for something that the engine was supposed to drive by name".**
+**⇒ This is the mechanical reason for "why does fixing one thing make another appear".**
 
 ---
 
-## 5. 补齐 ≠ 只改名字表（最容易踩的坑）
+## 4. Three Design Alignments When Patching Up (from a Same-Family Engine Comparison)
+
+**① Bones with no animation source should "just follow the parent bone"**
+Mature modded skeletons often have far more bones than the original (for example 126 vs 73). The extra bones **have no corresponding animation** in the original,
+and they are handled by **following the parent bone rigidly**, rather than being given target values of their own.
+
+**⇒ The same holds for us**: drive only the batch that matches up; let the rest explicitly "follow the parent bone rigidly",
+**rather than leaving them sitting in the rest pose**.
+
+**② IK is a "chain", not "a few bones"**
+The same-family engine declares IK by `$ikchain` (the whole chain).
+
+**⇒ Lower-body following should be enumerated per chain** (hip → leg → foot → toe), with an explicit statement that **the end of each chain** is the placement target.
+
+**③ Placement uses "pure world translation", not per-bone translation**
+See `03-falsified-paths.md` §C: per-bone translation tears (observed 20.68%), whole-body rigid translation tears 0.
+
+---
+
+## 5. Patching Up ≠ Just Changing the Name Table (The Easiest Trap to Fall Into)
 
 ```
-名字表（.bones）只是字典
-引擎的解析路径是：名字 → 哈希 → 场景图节点
-⇒ 字典里有、场景图里没有对应节点 ⇒ 解析不到
+The name table (.bones) is only a dictionary
+The engine's resolution path is: name → hash → scene graph node
+⇒ In the dictionary but no corresponding node in the scene graph ⇒ cannot be resolved
 ```
 
-**⇒ 所以"补全骨架"包含两件事：**
-1. **名字表**里加名字
-2. **场景图**里建对应的节点（正确哈希 + 正确父骨 + 合理的初始位置）
+**⇒ So "completing the skeleton" consists of two things:**
+1. Add the names to the **name table**
+2. Build the corresponding nodes in the **scene graph** (correct hash + correct parent bone + reasonable initial position)
 
-**⇒ 并且新增节点后要核对：`skins` 的骨位、网格引用是否需要同步。**
-（这一项我们只做了部分验证，见 `01-unit-format.md` §9。）
+**⇒ And after adding nodes, check: whether the `skins` bone slots and mesh references need to be synchronized.**
+(We have only partially verified this item; see `01-unit-format.md` §9.)
 
 ---
 
-## 6. 一个有用的判据
+## 6. A Useful Criterion
 
-**⇒ 判断"该不该补某个名字"的最快办法：**
-**去看游戏原版的同名骨在做什么。** 如果它被引擎按名引用（挂点、IK、瞄准），
-那么你的模型缺它 ⇒ 那套功能对你就失效。
+**⇒ The fastest way to decide "whether a given name should be added":**
+**Go look at what the identically named bone in the original game is doing.** If the engine references it by name (attachment points, IK, aiming),
+then your model missing it ⇒ that whole feature is dead for you.
 
-**⇒ 换句话说：骨名清单不是"越全越好"的洁癖，它是**功能清单**。**
+**⇒ In other words: the bone name list is not a completeness fetish, it is a **feature list**.**

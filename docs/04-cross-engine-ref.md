@@ -1,93 +1,93 @@
-# 04 · 同源引擎对照（为什么"照抄成熟生态"这件事要拆开看）
+# 04 · Same-lineage engine comparison (why "copying the mature ecosystem" has to be taken apart)
 
-> 本文只记录**可观察的结构性事实**，用于对照设计思路。
-> 不涉及任何具体作品的资产，也不做授权判断（见 `NOTICE.md`）。
-
----
-
-## 1. 起因：一个很有说服力的类比
-
-在对面的引擎生态里，改模是**成熟产业**：模型进游戏、武器挂手、动画正常，看起来毫不费力。
-于是自然会问：**"我们能不能照抄他们的做法？"**
-
-**⇒ 能，但要分清"哪一部分是引擎给的、哪一部分是模型给的"。**
+> This document records **observable structural facts** only, for the purpose of comparing design approaches.
+> It does not involve the assets of any specific work, and it makes no licensing judgement (see `NOTICE.md`).
 
 ---
 
-## 2. 对面（Source 引擎家族）的做法
+## 1. Origin: a very persuasive analogy
 
-### 2.1 挂点：**声明在模型里，按名字取**
+In the other engine family's ecosystem, modding is a **mature industry**: models go into the game, weapons attach to hands, animations work, and it all looks effortless.
+So the natural question follows: **"Can we just copy what they do?"**
 
-- 模型在自己的附件表里声明一批**具名挂点**（观察到的数量在 28~30 之间）
-- 每个挂点绑定到**一根具体的骨**（例如某挂点 → 骨 14、另一挂点 → 骨 45）
-- 挂点里既有**武器用的**（主武器、手枪、近战、燃烧瓶…），也有**表现/逻辑用**的
-  （眼睛、嘴、脚、身体朝向…），还有**IK/动作参照**用的
-
-**⇒ 关键点：武器的位置由**模型自己声明**决定 —— 所以模型什么比例都行。**
-
-### 2.2 骨名：**对齐标准骨架**
-
-- 改模会把自定义模型的骨**改成与标准骨架同名**（观察到的做法：60 根与原版同名）
-- 多出来的骨（模型专属，原版没有对应动画）**跟着父骨刚性走**
-
-### 2.3 IK：**按"链"声明**
-
-- 观察到的做法是声明若干条 IK 链（例如 5 条），由**引擎求解**
-- 落位目标是**链的末端**，不是"随便几根骨"
+**⇒ Yes — but you have to separate "which part is provided by the engine" from "which part is provided by the model."**
 
 ---
 
-## 3. 我们这边（Stingray/Bitsquid 家族）的差别
+## 2. How the other side (the Source engine family) does it
 
-| | 对面（Source） | 我们这边 |
+### 2.1 Attachment points: **declared inside the model, retrieved by name**
+
+- The model declares a set of **named attachment points** in its own attachment table (observed counts fall between 28 and 30)
+- Each attachment point is bound to **one specific bone** (for example, one attachment point → bone 14, another attachment point → bone 45)
+- The attachment points include **weapon-related** ones (primary weapon, pistol, melee, fire bomb…), **presentation/logic** ones
+  (eyes, mouth, feet, body facing…), and ones used for **IK/motion reference**
+
+**⇒ Key point: the weapon's position is determined by the model's own declaration — so the model can be any proportion at all.**
+
+### 2.2 Bone names: **aligned to a standard skeleton**
+
+- A mod will **rename** a custom model's bones **to match the standard skeleton** (the observed practice: 60 bones given the same names as the original)
+- Extra bones (model-specific, with no corresponding animation in the original) **follow their parent bone rigidly**
+
+### 2.3 IK: **declared as "chains"**
+
+- The observed practice is to declare a number of IK chains (for example, 5), which the **engine solves**
+- The placement target is the **end of the chain**, not "some arbitrary handful of bones"
+
+---
+
+## 3. How our side (the Stingray/Bitsquid family) differs
+
+| | The other side (Source) | Our side |
 |---|---|---|
-| **武器挂点由谁定** | **模型自己声明** | **游戏角色的骨架**（武器按名对位挂到角色骨） |
-| **武器可见网格绑在哪** | 模型自己的骨 | **游戏角色单位**（实测：关角色对象 ⇒ 武器一起消失） |
-| **IK 谁解** | 引擎按模型声明的链解 | 引擎按**固定的骨名族**解（缺则失效） |
-| **骨名要求** | 对齐标准骨架即可 | **必须可被引擎按名寻址**（否则整套功能失效） |
+| **Who determines the weapon attachment point** | **The model declares it itself** | **The game character's skeleton** (the weapon is matched by name and attached to character bones) |
+| **What the weapon's visible mesh is bound to** | The model's own bones | **The game character unit** (measured: disable the character object ⇒ the weapon disappears with it) |
+| **Who solves IK** | The engine, using the chains the model declares | The engine, using a **fixed bone-name family** (missing ⇒ no effect) |
+| **Bone-name requirement** | Aligning to the standard skeleton is sufficient | **Must be addressable by the engine by name** (otherwise the whole feature set stops working) |
 
-**⇒ ⇒ 一句话对比：对面是"模型告诉引擎武器在哪"，我们这边是"引擎自己知道武器在哪"。**
-
----
-
-## 4. 由此得到的四条可迁移结论
-
-**① "挂点/骨名必须可寻址"是**规范**，不是权宜之计**
-⇒ 补名字是**正规做法**（对应 `$attachment` 声明），不是打补丁。
-
-**② 成熟生态不是"不做运行期补偿"，而是"把该下沉的都下沉了"**
-⇒ 能写进资产层的（挂点、IK 链、标准骨名）**都在资产层**；
-⇒ 只有无法下沉的（例如"把动画从另一副骨架搬过来"）才放运行期。
-
-**③ 补齐骨架是"功能清单"，不是"越全越好"**
-⇒ 骨名 = 引擎功能的入口。缺哪个，对应的那套功能就对这个模型失效。
-
-**④ 缺骨名的骨要明确"随父骨刚性跟随"**
-⇒ 不要让它停在静置姿态，也不要给它编目标值。
+**⇒ ⇒ In one sentence: on the other side, "the model tells the engine where the weapon is"; on our side, "the engine already knows where the weapon is."**
 
 ---
 
-## 5. 一个反直觉但重要的差别
+## 4. Four transferable conclusions that follow
 
-**对面之所以"模型什么比例都行"，是因为武器挂点由模型自己声明；
-而挂点绑到骨 ⇒ 骨怎么变形，武器就跟到哪。**
+**① "Attachment points / bone names must be addressable" is a convention, not a stopgap**
+⇒ Adding names is the **proper approach** (corresponding to the `$attachment` declaration), not a patch.
 
-**⇒ 在我们这边这条捷径不存在**：武器绑在**游戏角色的骨**上。
-**⇒ 于是"保模型原始比例 + 武器精确在模型自己手上"就变成了几何上互斥的两件事**
-（量化依据见 `03-falsified-paths.md` §A/§K）。
+**② A mature ecosystem does not "skip runtime compensation"; it "pushes down everything that can be pushed down"**
+⇒ Whatever can be written into the asset layer (attachment points, IK chains, standard bone names) **is in the asset layer**;
+⇒ Only what cannot be pushed down (for example, "moving an animation over from a different skeleton") is left to runtime.
 
-**⇒ 这不是实现水平问题，是绑定关系不同。**
+**③ Completing a skeleton is a "feature checklist," not "the more the better"**
+⇒ A bone name is the entry point to an engine feature. Whatever is missing, that corresponding feature set stops working for this model.
+
+**④ Bones with no bone name must be explicitly made to "follow their parent bone rigidly"**
+⇒ Do not leave them sitting in the rest pose, and do not author target values for them.
 
 ---
 
-## 6. 归纳：该照抄什么、不该照抄什么
+## 5. A counter-intuitive but important difference
 
-| 对面的做法 | 该不该照抄 | 理由 |
+**The reason the other side can say "the model can be any proportion at all" is that the weapon attachment point is declared by the model itself;
+and the attachment point is bound to a bone ⇒ however the bone deforms, the weapon follows.**
+
+**⇒ On our side this shortcut does not exist**: the weapon is bound to the **game character's bones**.
+**⇒ Consequently, "keep the model's original proportions + have the weapon sit precisely in the model's own hand" becomes two geometrically mutually exclusive things**
+(for the quantitative basis, see `03-falsified-paths.md` §A/§K).
+
+**⇒ This is not a question of implementation skill; it is a difference in the binding relationship.**
+
+---
+
+## 6. Summary: what to copy and what not to copy
+
+| What the other side does | Copy it or not | Reason |
 |---|---|---|
-| 模型声明具名挂点 | ✅ **照抄（语义）** | 我们这边同样要求"名字可寻址" |
-| 骨名对齐标准骨架 | ✅ **照抄（部分）** | 但要注意：我们这边缺的是**引擎要用的一整套名字**，不只是主形变骨 |
-| 多出来的骨随父骨刚性走 | ✅ **照抄** | 无需目标值，且避免停在静置 |
-| IK 按链做、末端落位 | ✅ **照抄（设计）** | 我们这边由引擎按固定骨名族解，所以要先补齐那些名字 |
-| "模型什么比例都行" | ❌ **不能照抄** | 他们的挂点在模型里；我们的武器绑在游戏角色骨上 |
+| The model declares named attachment points | ✅ **Copy it (the semantics)** | We likewise require "names must be addressable" |
+| Bone names aligned to the standard skeleton | ✅ **Copy it (partially)** | But note: what we are missing is **the whole set of names the engine uses**, not just the primary deformation bones |
+| Extra bones follow their parent bone rigidly | ✅ **Copy it** | No target values needed, and it avoids sitting in the rest pose |
+| IK done by chains, with placement at the end | ✅ **Copy it (the design)** | On our side the engine solves using a fixed bone-name family, so those names have to be completed first |
+| "The model can be any proportion at all" | ❌ **Cannot be copied** | Their attachment points live in the model; our weapons are bound to the game character's bones |
 
-**⇒ 最后一行是整份对照的核心：**能照抄的是**规范与设计**，不能照抄的是**绑定关系**。**
+**⇒ The last row is the core of this whole comparison: what can be copied is the conventions and the design; what cannot be copied is the binding relationship.**

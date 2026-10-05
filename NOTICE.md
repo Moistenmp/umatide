@@ -1,66 +1,73 @@
-# NOTICE —— 版权、来源与边界
+# NOTICE — copyright, provenance, and scope
 
-**这份文件是边界声明。它的作用是让"我们发布什么、不发布什么"一目了然。**
+**This file defines the boundary: what this repository publishes, and what it deliberately does not.**
 
 ---
 
-## 一、本仓库仅包含三类内容
+## 1. This repository contains exactly three kinds of material
 
-| 类别 | 内容 | 来源 |
+| Kind | Content | Provenance |
 |---|---|---|
-| **格式事实** | 对单位资源二进制的观察结论（偏移、长度、字段语义） | 我们自己对该格式的测量与复核 |
-| **过程记录** | 已证伪的路径、失败原因、判据 | 我们自己的实验记录 |
-| **工具与脚本** | 参数化后的工具（尚未就绪） | 我们自己编写 |
+| **Format facts** | Observations about the unit resource binary format (offsets, lengths, field semantics) | Our own measurement and cross-checking of that format |
+| **Process records** | Approaches that were disproven, why they failed, and the criteria | Our own experiment logs |
+| **Tools and scripts** | Parameterized tools (not ready yet) | Written by us |
 
 ---
 
-## 二、本仓库**不包含**以下内容（也不接受附带提供）
+## 2. This repository does **not** contain the following — and will not accept them
 
-| 排除项 | 原因 |
+| Excluded | Reason |
 |---|---|
-| **游戏的反编译源码** | 那是游戏代码的逆向产物，再分发会构成侵权 |
-| **从游戏数据包中导出的原始资源**（unit / 材质 / 骨架 / 动画 / 音频） | 属于发行商的资产 |
-| **外部模型的原始资产或转换产物**（模型本体、贴图、动画、骨骼数据） | 属于原模型权利人的资产 |
-| **任何绕过正版验证、解锁内容的说明或工具** | 违法 |
+| **Decompiled game source code** | A reverse-engineered derivative of the game's code; redistributing it is infringement |
+| **Raw assets extracted from the game's data** (units, materials, skeletons, animations, audio) | Publisher-owned assets |
+| **Original or converted third-party model assets** (model geometry, textures, animations, rigs) | Assets owned by the respective rights holders |
+| **Anything that circumvents ownership verification or unlocks paid content** | Unlawful |
 
-**⇒ 如果你手里有上述内容，请不要放进本仓库的 issue、PR 或讨论区。**
-
----
-
-## 三、使用者需要自己准备的东西
-
-复现本仓库描述的流程，使用者需要：
-
-1. **自己合法拥有的 Darktide 副本**（游戏本体由你自己获取）
-2. **自己有权使用的模型资产**（模型的来源与授权由你自己确认）
-3. **自己承担对第三方工具的使用条款**（例如社区通用的解包/转换工具）
-
-**⇒ 本仓库不提供、不索取、不托管上述任何一项。**
+**⇒ If you have material like this, please do not attach it to issues, pull requests, or discussions here.**
 
 ---
 
-## 四、模型来源提醒（重要）
+## 3. What a user must supply themselves
 
-如果你打算在 Darktide 里使用某个**已有版权的角色形象**（来自动画、游戏、虚拟主播等）：
+To reproduce anything described here, you need:
 
-- **本仓库只提供"怎么接进去"的技术事实**，不对你的使用授权作任何判断
-- **分发转换后的模型资产**（而不只是工具）通常需要权利人许可
-- **分发工具与格式文档**与分发资产是两件事——请分清楚
+1. **Your own legitimately obtained copy of Darktide** (you acquire the game yourself)
+2. **Model assets you are entitled to use** (the model's origin and licensing are your responsibility)
+3. **Your own compliance with third-party tool terms** (e.g. community unpacking/conversion tools)
 
-**⇒ 自用与分发是两条不同的线。本项目当前定位是自用工具链。**
-
----
-
-## 五、商标
-
-本仓库的**名称与内容不使用任何第三方公司的注册商标作为项目名**。
-
-文档中如需指代某个具体作品，仅作**事实性提及**（说明"这类模型的处理方式"），
-不表示任何隶属、赞助或背书关系。
+**⇒ This repository neither provides, requests, nor hosts any of the above.**
 
 ---
 
-## 六、免责
+## 4. A note on model sources (important)
 
-本仓库内容按**现状**提供，不附带任何明示或暗示的担保。
-因使用本仓库内容而导致的任何后果，由使用者自行承担。
+If you intend to use a **copyrighted character design** (from an animation, a game, a virtual
+performer, etc.) inside Darktide:
+
+- **This repository only supplies technical facts about how such a model can be attached.**
+  It makes no judgement about your licensing position.
+- **Distributing converted model assets** (rather than just tooling) normally requires
+  permission from the rights holder.
+- **Distributing tools and format documentation is a different act from distributing assets.**
+  Keep the two separate.
+
+**⇒ Personal use and public distribution are two different tracks. This project currently
+positions itself as a personal toolchain.**
+
+---
+
+## 5. Trademarks
+
+The **name and content of this repository do not use any third-party company's registered
+trademark as a project name.**
+
+Where a specific work must be referred to in documentation, it is mentioned **factually**
+(to describe how models of that kind are handled) and implies **no affiliation, sponsorship,
+or endorsement**.
+
+---
+
+## 6. Disclaimer
+
+This repository is provided **as-is**, without warranty of any kind, express or implied.
+Any consequences of using its contents are the user's own responsibility.

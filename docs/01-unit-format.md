@@ -1,44 +1,44 @@
-# 01 · 单位（unit）资源格式
+# 01 · Unit resource format
 
-> **本文的每条结论都标注了判据类型：**
-> `[字节]` = 直接读出的字节/偏移；`[实测]` = 实机或工具行为；`[推断]` = 尚未直接证实。
+> **Every conclusion in this document is tagged with its evidence type:**
+> `[bytes]` = bytes/offsets read directly; `[observed]` = on-machine or tool behavior; `[inferred]` = not yet directly confirmed.
 >
-> **范围**：Darktide（Stingray/Bitsquid 引擎家族）的 `unit` 与配套 `bones` 资源。
-> **不含**任何游戏资源本体。
+> **Scope**: the `unit` resource of Darktide (Stingray/Bitsquid engine family) and the accompanying `bones` resource.
+> **Contains** no game resource payloads.
 
 ---
 
-## 1. 文件外形
+## 1. File shape
 
 ```
-unit 文件 = [38 字节 cooked 头][body]
+unit file = [38-byte cooked header][body]
 ```
 
-### 1.1 头部里已确认的两个字段 `[实测]`
+### 1.1 Two confirmed fields in the header `[observed]`
 
-| 偏移 | 类型 | 含义 | 判据 |
+| Offset | Type | Meaning | Evidence |
 |---|---|---|---|
-| `8` | `u64` | **资源名的 murmur64 哈希** | 社区资产注册器在校验失败时报 `header name hash does not match ...` |
-| `29` | `u32` | **body 长度**（= 文件长 − 38） | 头部声明的长度与文件实际长度不一致时，校验器报 `cooked resource envelope length mismatch: header declares X bytes, got Y` |
+| `8` | `u64` | **murmur64 hash of the resource name** | the community asset registrar reports `header name hash does not match ...` when validation fails |
+| `29` | `u32` | **body length** (= file length − 38) | when the length declared in the header disagrees with the actual file length, the validator reports `cooked resource envelope length mismatch: header declares X bytes, got Y` |
 
-**⇒ 这两条是"改完文件必须回写头部"的全部理由。**
-**⇒ `bones` 文件同构**：也有 38 字节头，也把 body 长度写在偏移 29。`[实测]`
+**⇒ These two are the entire reason for "after editing a file you must write the header back".**
+**⇒ `bones` files are isomorphic**: they also have a 38-byte header, and also write the body length at offset 29. `[observed]`
 
-### 1.2 名字哈希的算法 `[字节][实测]`
+### 1.2 The name-hash algorithm `[bytes][observed]`
 
-- 名字 → `murmur64(name)` → **取高 32 位**存入场景图的名字哈希数组
-- 该哈希同时决定**资源文件名**（导出工具用的 16 位十六进制即完整 `murmur64`）
+- name → `murmur64(name)` → **take the high 32 bits** and store them in the scene graph's name hash array
+- that same hash also determines the **resource file name** (the 16 hexadecimal digits used by the export tool are the full `murmur64`)
 
 ---
 
-## 2. body 的分区结构
+## 2. Section structure of the body
 
-**body 是一串"自描述分区"，没有偏移表。** `[字节]`
+**The body is a sequence of "self-describing sections"; there is no offset table.** `[bytes]`
 
-⇒ **拼装一个 unit 的正确做法是：按同样的顺序把分区首尾相接，并回写头部的 body 长度。**
-⇒ **分区的长度隐含在各自的数据里**（没有全局索引可查）。
+⇒ **The correct way to assemble a unit is: concatenate the sections in the same order, and write the body length back into the header.**
+⇒ **Section lengths are implicit in each section's own data** (there is no global index to consult).
 
-### 2.1 观察到的分区名 `[字节]`
+### 2.1 Observed section names `[bytes]`
 
 ```
 version                     actors                      actors_2
@@ -49,155 +49,155 @@ lod_objects                  materials                   mesh_geometries
 mesh_geometry_triangle_finder  meshes                    movers
 physics_scene_data_64bit     scene_graph                 simple_animation
 simple_animation_groups      skeleton_name               skins
-terrains                     visibility_groups           unk9..unk20 (未知用途)
+terrains                     visibility_groups           unk9..unk20 (purpose unknown)
 ```
 
-> **注意**：分区名的**拼写与顺序**是观察值。不同 unit 可能缺省某些分区（空分区表现为长度 4 的计数 0）。
+> **Note**: the **spelling and order** of the section names are observations. Different units may omit some sections (an empty section shows up as a count of 0 with length 4).
 
 ---
 
-## 3. `scene_graph` 的精确布局 `[字节]`
+## 3. Exact layout of `scene_graph` `[bytes]`
 
-**这是最容易读错、也最影响编辑的一节。实测布局如下（按顺序）：**
-
-```
-u32  节点数 N
-N × 60 字节    局部变换
-N × 64 字节    世界矩阵
-N × 4  字节    父子表
-N × 4  字节    名字哈希表
-```
-
-### 3.1 局部变换块 = 60 字节 = `36 + 12 + 12` `[字节]`
+**This is the section that is easiest to misread and the one that most affects editing. The observed layout is as follows (in order):**
 
 ```
-[0:36]   3×3 旋转（9 个 float）
-[36:48]  平移（3 个 float）      ← 这就是"骨长"（相对父原点的偏移向量，其模 = 段长）
-[48:60]  缩放（3 个 float）      ← 正常单位里是 (1, 1, 1)
+u32  node count N
+N × 60 bytes    local transform
+N × 64 bytes    world matrix
+N × 4  bytes    parent/child table
+N × 4  bytes    name hash table
 ```
 
-**⇒ 一个真实的读错例子（值得记住）：**
-若按 4×4 矩阵去读这块，位移会落在 `[48:60]`，读到的是 **缩放 (1,1,1)**，
-于是"段长"会全部算成 `√(1²+1²+1²) = 1.732` m —— 一个看起来像数据但其实全是错的数。
+### 3.1 Local transform block = 60 bytes = `36 + 12 + 12` `[bytes]`
 
-### 3.2 世界矩阵块 = 64 字节 `[字节]`
+```
+[0:36]   3×3 rotation (9 floats)
+[36:48]  translation (3 floats)   ← this is the "bone length" (the offset vector relative to the parent origin, whose magnitude = segment length)
+[48:60]  scale (3 floats)         ← in normal units this is (1, 1, 1)
+```
 
-标准 4×4 行主序 float；平移分量在 float 下标 `12..14`。
+**⇒ A real example of misreading it (worth remembering):**
+if this block is read as a 4×4 matrix, the displacement lands in `[48:60]` and what is read is the **scale (1,1,1)**,
+so the "segment length" is computed throughout as `√(1²+1²+1²) = 1.732` m — a number that looks like data but is entirely wrong.
 
-### 3.3 父子表 = 每节点 4 字节 = `(u16 类型, u16 父下标)` `[字节]`
+### 3.2 World matrix block = 64 bytes `[bytes]`
 
-- **父下标 >= 节点数** ⇒ 该节点是根（无父）
-- 类型字段的语义尚未完全确证 `[推断]`
+Standard 4×4 row-major float; the translation components are at float indices `12..14`.
 
-### 3.4 名字哈希表 **在父子表之后** `[字节]`
+### 3.3 Parent/child table = 4 bytes per node = `(u16 type, u16 parent index)` `[bytes]`
+
+- **parent index >= node count** ⇒ that node is a root (no parent)
+- the semantics of the type field are not yet fully confirmed `[inferred]`
+
+### 3.4 The name hash table is **after the parent/child table** `[bytes]`
 
 ```
 hash_offset = section_offset + 4 + N*60 + N*64 + N*4
-                                                   ^^^^  ← 漏掉这一段就会读到垃圾
+                                                   ^^^^  ← skip this segment and you read garbage
 ```
 
-**⇒ 这是一个实际踩过的坑**：漏掉 `N*4`（父子表）之后再去读名字哈希，
-会得到"全部不匹配、命中 0 个"的假象，从而误判"名字没绑到节点上"。
+**⇒ This is a pitfall we actually hit**: skipping `N*4` (the parent/child table) and then reading the name hashes
+produces the illusion of "nothing matches, 0 hits", which leads to the misjudgment that "the names are not bound to nodes".
 
 ---
 
-## 4. 名字与节点的解析规则（本引擎家族的核心规范）
+## 4. Rules for resolving names and nodes (a core convention of this engine family)
 
-### 4.1 引擎侧节点编号 = 文件内下标 + 1 `[实测]`
+### 4.1 Engine-side node numbering = in-file index + 1 `[observed]`
 
-多处独立验证过（文件 0 → 引擎 1；文件 238 → 引擎 239；文件 4 → 引擎 5；文件 171 → 引擎 172）。
+Verified independently in several places (file 0 → engine 1; file 238 → engine 239; file 4 → engine 5; file 171 → engine 172).
 
-**⇒ 一切写骨接口收的都是引擎编号；而资产编辑都是在文件下标上做。这条差 1 是常见错误来源。**
+**⇒ Every bone-writing interface takes engine numbering, while asset editing is done on in-file indices. This off-by-one is a common source of errors.**
 
-### 4.2 让一个节点"可被名字寻址"需要什么 `[字节][实测]`
+### 4.2 What it takes for a node to be "addressable by name" `[bytes][observed]`
 
 ```
-① 该节点的名字哈希必须写进 scene_graph 的名字哈希表
-② 该名字必须出现在配套 .bones 的名字表里
-③ （骨）还需在 skins 里占一个骨位   ← 只加名字不加骨位，引擎可能仍不把它当骨
+① the node's name hash must be written into the scene_graph name hash table
+② that name must appear in the accompanying .bones name table
+③ (for bones) it must also occupy a bone slot in skins   ← adding only the name without a bone slot may still leave the engine not treating it as a bone
 ```
 
-**⇒ 只做 ② 是不够的**：名字表只是**字典**，引擎的解析路径是
-`名字 → 哈希 → scene_graph 节点`。**字典里有、场景图里没有对应哈希 ⇒ 解析不到。**
+**⇒ Doing only ② is not enough**: the name table is merely a **dictionary**, and the engine's resolution path is
+`name → hash → scene_graph node`. **The dictionary has it but the scene graph has no corresponding hash ⇒ it cannot be resolved.**
 
-### 4.3 这条规范的意义
+### 4.3 Why this convention matters
 
-**挂点与骨名必须可寻址，否则引擎自己的系统（武器附着、脚部 IK、手部 IK、瞄准）
-根本无法作用到你的模型上** —— 这在同源引擎（Source）里对应“在模型里声明 `$attachment`”。
+**Attachments and bone names must be addressable, otherwise the engine's own systems (weapon attachment, foot IK, hand IK, aiming)
+simply cannot act on your model** — in the sibling engine (Source) this corresponds to "declaring `$attachment` in the model".
 
 ---
 
-## 5. `bones` 资源的体部布局 `[字节]`
+## 5. Body layout of the `bones` resource `[bytes]`
 
-**我们做过"用现有名字重建 body 必须与文件逐字节一致"的自证，因此这条可信度较高：**
+**We performed the self-proof that "rebuilding the body from the existing names must be byte-identical to the file", so this one is fairly reliable:**
 
 ```
-u32  名字数 C
-u32  常量（观察值 = 1）
-C × u32   名字哈希（murmur64(name) >> 32）
-u32  名字数 C（再次出现）
-C × (ASCII 名字 + 0x00)
+u32  name count C
+u32  constant (observed value = 1)
+C × u32   name hashes (murmur64(name) >> 32)
+u32  name count C (appears again)
+C × (ASCII name + 0x00)
 ```
 
-**⇒ 编辑名字表时务必跑上述自证**：用**现有**名字重建一遍，必须与当前 body 逐字节相同。
-**只有自证通过，才允许用同一套代码写回新的名字表。**
+**⇒ When editing the name table, always run the self-proof above**: rebuild once from the **existing** names, and it must be byte-identical to the current body.
+**Only after the self-proof passes are you allowed to write a new name table back with the same code.**
 
 ---
 
-## 6. `skins`：蒙皮与逆绑定矩阵
+## 6. `skins`: skinning and inverse bind matrices
 
-- 体部包含 **每个骨位对应的节点下标** 与**逆绑定矩阵（IBM）**
-- **IBM 的定义即 `inverse(骨在该姿态下的世界变换)`** `[推断，但有强证据]`
+- The body contains **the node index corresponding to each bone slot** and the **inverse bind matrices (IBM)**
+- **The IBM is by definition `inverse(the bone's world transform in that pose)`** `[inferred, but with strong evidence]`
 
-### 6.1 由此得到的一条恒等式（编辑骨长时必须知道）
+### 6.1 An identity that follows from this (you must know it when editing bone lengths)
 
 ```
-蒙皮：  v_world = Σ wᵢ · Wᵢ(动画) · IBMᵢ · v_bind
-若      IBMᵢ = inverse(Wᵢ(绑定))
-则      动画 == 绑定时  ⇒  v_world == v_bind
+skinning:  v_world = Σ wᵢ · Wᵢ(animation) · IBMᵢ · v_bind
+if         IBMᵢ = inverse(Wᵢ(bind))
+then       animation == bind  ⇒  v_world == v_bind
 ```
 
-**⇒ 结论：只要"改骨长"与"重算该骨（及其子树）的 IBM"成对做，静置姿态下网格零形变。**
-**⇒ 这是一条代数恒等式，不是近似。**
+**⇒ Conclusion: as long as "change the bone length" and "recompute the IBM of that bone (and its subtree)" are done as a pair, the mesh is deformed by zero in the rest pose.**
+**⇒ This is an algebraic identity, not an approximation.**
 
-**⇒ 而改动一根骨的局部平移会移动它整棵子树的世界静置变换**
-⇒ **受影响的 IBM = 这根骨及其全部后代。**
+**⇒ And changing one bone's local translation moves the world rest transform of its entire subtree**
+⇒ **the IBMs affected = that bone and all of its descendants.**
 
 ---
 
-## 7. 动画是**按索引**绑定的 `[实测]`
+## 7. Animation is bound **by index** `[observed]`
 
-- 编译器有一条硬不变量：**简单动画的轨道数必须等于骨架的骨位数**，轨道 `i` 对应场景图节点 `i`
-- 在动画数据里检索**骨名哈希**查不到东西
+- The compiler has a hard invariant: **the track count of a simple animation must equal the bone count of the skeleton**, and track `i` corresponds to scene graph node `i`
+- Searching the animation data for a **bone name hash** finds nothing
 
-**⇒ 直接后果：动画不认名字。要让每根骨动起来，必须让它出现在正确的**索引位**上。**
-
----
-
-## 8. 编辑 unit 时可用的安全做法（我们实际用过的）
-
-```
-1. 任何改动前先备份（只移不删）
-2. 读到内存 → 只改目标字节 → 一次性写回（禁止"读进来又分步写、最后再写回"）
-3. 改完立刻跑本地校验：
-    · 场景图名字哈希数组与父子表长度自洽
-    · .bones 的"用现有名字重建"自证
-    · 头部偏移 8 的哈希与偏移 29 的长度
-4. 交给游戏侧资产注册器（patcher）做最终校验——**它会拒绝头部不一致的文件**
-5. 名字改了 ⇒ 依赖名字的数据表必须同步重算（否则会写到错误的节点上，且引擎不报错）
-```
+**⇒ Direct consequence: animation does not know names. To make each bone move, it must appear at the correct **index** position.**
 
 ---
 
-## 9. 尚未确证的部分（诚实清单）
+## 8. Safe practices available when editing a unit (ones we have actually used)
 
-| 项 | 状态 |
+```
+1. Back up before any change (move only, never delete)
+2. Read into memory → change only the target bytes → write back in one pass (never "read it in, then write in steps, then write back at the end")
+3. Run local validation immediately after the change:
+    · the scene graph name hash array and the parent/child table lengths are self-consistent
+    · the .bones "rebuild from existing names" self-proof
+    · the hash at header offset 8 and the length at offset 29
+4. Hand it to the game-side asset registrar (patcher) for final validation — **it will reject files with an inconsistent header**
+5. Names changed ⇒ data tables that depend on names must be recomputed in sync (otherwise the write lands on the wrong node, and the engine reports no error)
+```
+
+---
+
+## 9. What is not yet confirmed (honesty list)
+
+| Item | Status |
 |---|---|
-| `scene_graph` 父子表里"类型"字段的完整语义 | `[推断]` |
-| 各 `unk9..unk20` 分区的用途 | 未知 |
-| 新增节点后 `skins.node_indices` 是否需要额外同步 | 部分验证 |
-| 材质层与可见性分组对自定义模型的完整影响面 | `[实测]` 有现象，机制未完全拆解 |
-| 动画状态机与 `flow` 对自定义单位的作用方式 | 未验证 |
+| full semantics of the "type" field in the `scene_graph` parent/child table | `[inferred]` |
+| purpose of the `unk9..unk20` sections | unknown |
+| whether `skins.node_indices` needs additional synchronization after adding nodes | partially verified |
+| the full impact of the material layer and visibility groups on custom models | `[observed]` phenomena, mechanism not fully broken down |
+| how the animation state machine and `flow` act on custom units | unverified |
 
-**⇒ 上面这些我们没把握的，就写"没把握"。**
-**如果你在这些点上已有结论，请直接指出——对事实的更正比对结论的认同有用。**
+**⇒ For the points above that we are not sure about, we write "not sure".**
+**If you already have conclusions on these points, say so directly — a correction of a fact is more useful than agreement with a conclusion.**
