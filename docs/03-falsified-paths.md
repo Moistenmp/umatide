@@ -127,6 +127,34 @@ the normal third-person flow **does not** take this step. Doing it unconditional
 
 ---
 
+## H.1 ★ A name lookup that silently returns every frame (fixed 2026-10-07)
+
+Not a falsified path — a **mechanism worth knowing**, because it produced one of the three
+"unfixable" symptoms.
+
+```
+The ground-snap step resolved the node whose local space the translation must be expressed in
+by looking it up BY NAME ("mf_root").
+Our asset's root node carries a HASH name, not "mf_root".
+⇒ the lookup returned nil every frame ⇒ the step returned early, incrementing a counter
+⇒ counters (from our own log):  生效 0 frames  |  跳过 4440 frames  |  最大修正 0 m
+⇒ meanwhile the main switch printed `rt2=true` — the log looked healthy.
+⇒ observed symptom: feet floating ~0.18 m (our foot 0.7037 vs character foot 0.5260).
+```
+
+**⇒ Fix**: resolve the frame **structurally** — `Unit.scene_graph_parent(unit, node)` from the
+branch roots — and keep the name lookup only as a fallback. After the fix the same log read:
+
+```
+生效 1246 frames | our foot 0.5238  | character foot 0.5227 | dz inside the 2 mm deadzone
+```
+
+**⇒ Lesson that generalizes**: **when a name-driven engine system seems "not to work", check
+first whether the name exists in *your* asset.** The main switch can be on, and the per-frame
+code can be running without error, while one missing name kills the whole step.
+
+---
+
 ## I. Falsifications at the methodological level (equally valuable)
 
 | Practice | Why it is wrong | Cost |
@@ -136,6 +164,9 @@ the normal third-person flow **does not** take this step. Doing it unconditional
 | **Making a single-variable determination in a state that has confounding variables** | see H: the negative conclusion obtained is unusable | several rounds |
 | **Addressing by array index instead of by name** | indices drift as assets are rebuilt (change an asset once and every index is out of place) | has already caused an incident |
 | **Silent failure** | a runtime branch that "does nothing" raises no error ⇒ it gets misread as "it was hidden" | several rounds |
+| **★ Deciding a composition order from a "read-back" alone** (added 2026-10-07) | "the engine read back exactly what we wrote" only proves **the write landed** — it proves nothing about **how the engine composes local→world**. We inferred the order from it, reversed the code, and every contact-point error grew from 0.25 m to 1.5–2.0 m (the model sank into the ground). The **position** test — which has a single unambiguous composition — had said the opposite, and was right. | half a session + a bad deploy |
+| **★ Trusting an offline tree/父子 interpretation over a known-good constant** (added 2026-10-07) | we re-derived a parent/index set from the unit's own bytes and "corrected" a value that had been **finalized by the original author at 23:46** (the backup's very name says *clamp_root_by_parent*). Result: the rigid translation was applied to the wrong pair of nodes and a **2822 m** correction was written, putting the unit 88 km away. **`Unit.scene_graph_parent` and a raw byte-level parent field are not necessarily the same convention.** | one round trip |
+| **★ Treating "the compiler said `valid`" as "the geometry is right"** (added 2026-10-07) | a build passed `valid` + `9 skinned` + all added names present, while the **vertex joint indices had been compacted without rewriting `JOINTS_0`** ⇒ 26 vertex groups were bound to the wrong bones and the mesh exploded. The compiler validates structure, not whether your index remap preserved the binding. **The gate that catches this is a per-vertex skinning re-computation against the original (it must be 0.0000 mm).** | one round trip |
 
 **⇒ Conclusion**: **read the original first, build a minimal difference table first, then act**; every step needs a **decidable log**.
 
