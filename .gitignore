@@ -54,3 +54,7 @@ out/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# temporary commit-message files (never commit these)
+CM.txt
+COMMIT_MSG.txt
