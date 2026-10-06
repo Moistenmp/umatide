@@ -189,4 +189,55 @@ that reproduced the working state.
 **Go look at what the identically named bone in the original game is doing.** If the engine references it by name (attachment points, IK, aiming),
 then your model missing it ⇒ that whole feature is dead for you.
 
-**⇒ In other words: the bone name list is not a completeness fetish, it is a **feature list**.**
+**⇒ In other words: the bone name list is not a completeness fetish, it is a *feature list*.**
+
+---
+
+## 7. ★ The authoritative version of this list (measured 2026-10-07)
+
+Everything above was assembled by hand. There is now a **machine-generated ground truth**, and it
+should be preferred: the addon's **`Import Game Unit Nodes`** operator imports **every non-mesh
+node of a game unit**, named and placed like the game's.
+
+Taking the human third-person base unit (`content/characters/player/human/third_person/base`)
+with a full `limn --dump-raw … unit bones` extract:
+
+```
+game unit non-mesh nodes      245
+  named                       185
+  known only by hash           60      <- these are real nodes; leave the #names alone
+our asset's .bones name table 228
+  game has        . we have     66
+  game has        . we LACK    119     <- the gap, by name
+```
+
+The missing families, by count:
+
+| Family | Missing | Note |
+|---|---:|---|
+| `ap_anim_01..10` (+ `_offhand`) | 20 | weapon animation bones |
+| `ap_release_01..04` (+ `_offhand`) | 8 | magazine release |
+| `j_trail_01..04` (+ `_offhand`) | 8 | projectile trail |
+| `ap_recharge_01..03` (+ `_offhand`) | 6 | charging handle |
+| `ap_bullet_01/02`, `ap_magazine_01/02`, `ap_safety_01/02`, `ap_sight_01/02`, `ap_stock_01/02`, `ap_trigger_01/02` (each + `_offhand`) | 4 each | weapon part attach |
+| `ap_underbarrel_01` (+ `_offhand`) | 2 | underbarrel |
+| `j_left/rightforearmroll1/2` | 4 | **we had these bones - only their names were missing from the table** |
+| `c_lefthand`, `c_righthand` | 2 | a prefix we had never considered |
+| **`fx_anim_01`** | 1 | **the effect family was entirely absent from our enumeration** |
+| `j_aim_target`, `j_backchestplate`, `j_backpackoffset`, `j_camera_attach` | 1 each | aim / gear / camera |
+
+**⇒ Two consequences worth stating plainly:**
+
+1. **Hand-enumeration under-counts.** We had documented the weapon families as `ap_*` and
+   `j_trail_*`; the game unit also carries `c_*` and `fx_*` nodes that our list never mentioned.
+2. **"Missing" is not the same as "absent from the model".** `j_*forearmroll` existed in our
+   asset - only its **name** was missing. Those are cheaper to fix than genuinely absent bones.
+
+**⇒ Recommended procedure** (replaces the manual route in section 5): run `Import Game Unit Nodes`
+for the unit you are replacing, and **diff its output against your own name table**. That diff
+*is* the feature list of section 6 - generated rather than guessed.
+
+> Caveat we hit: the newer addon's `_parse_bones` **rejected our `.bones` outright**
+> (`BONES LOD table is invalid`), consistent with the compiler calling our unit `invalid`.
+> The comparison above therefore had to be done with a separate parser. If your asset is
+> hand-patched at the unit level, expect the toolchain to refuse to read it.

@@ -1,8 +1,35 @@
 # 06 · Toolchain landscape: what already exists, and where the gap is
 
+> **Refreshed 2026-10-07.** Rewritten after we discovered we had been running an **out-of-date
+> build** of the official toolchain, and that the current one covers more than the version we were
+> working against. If you are here to get a model into the game: **check the toolchain's version
+> and README first — it may already do what you are about to hand-roll.**
+
 > **Purpose of this document.** When someone asks *"can't the existing compiler just output this?"*,
 > the honest answer is **yes for one goal, and no for another.** This page states which is which,
 > so nobody has to guess what these docs are for.
+
+---
+
+## 0. Update your toolchain before reading the rest
+
+The current Blender addon ships an operator we did not know about while writing the earlier
+revisions of these docs:
+
+```
+"Import Game Unit Nodes"  ->  imports EVERY non-mesh node of a game unit,
+                              named and placed where the game has them
+                              (attach points ap_*, effect points fx_*,
+                               animated nodes, and hash-only nodes as #1234abcd)
+```
+
+**⇒ If your problem is "my asset is missing the game's nodes, or their names", stop hand-rolling
+it.** Extract the game files, point the addon at the unit you are replacing, and press that button.
+`02-skeleton-completeness.md` §7 shows the diff it produces and why hand-enumeration under-counts.
+
+The same release adds **particles, game shaders, dangle/jiggle bones and visibility groups** at the
+asset level. Several of those we had previously attempted to reimplement at runtime — **that work
+is superseded**; see `README.md` §0.1 for the honest placement.
 
 ---
 

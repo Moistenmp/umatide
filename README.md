@@ -4,6 +4,48 @@
 
 Status: **personal / early.** Not a finished mod, and not a "drop-in model replacement".
 
+## 0. Read this before trusting anything here (added 2026-10-07)
+
+**We are in the testing stage, and we have not fully absorbed the community toolchain.**
+
+That is not a formality. Two concrete things happened while writing these docs:
+
+1. **We were running an out-of-date build of the official toolchain** (compiler + Blender addon
+   dated 2026-09-30) while its README had already grown a whole section —
+   *"Replacing the game's own units"* — and the newer addon ships an operator called
+   **`Import Game Unit Nodes`** that does, as a button, the exact thing three of our documents
+   describe as hard: bring in **every node of the unit being replaced, named and placed like
+   the game's**, including hash-only nodes (`#1234abcd`).
+2. **Our own asset fails the newer addon's parser**: `_parse_bones` rejects our `.bones` with
+   `BONES LOD table is invalid`. The compiler's `--validate` had already flagged our unit as
+   `invalid` (`synthetic UNIT root SceneGraph linkage changed`). So **the asset this repo
+   describes is not a well-formed unit by the toolchain's own standards** — it loads, but it is
+   not something we can call "correct".
+
+**⇒ So treat these docs as:** notes on *what the engine family requires and why the two goals
+conflict* — which we believe still holds — **not** as a claim that we have found the best or the
+complete way to do it. Where a statement here conflicts with the current toolchain's behaviour,
+**the toolchain is right.**
+
+---
+
+## 0.1 Where this can actually help the community (honest placement)
+
+| Area | Covered by the community toolchain | What is left, and what we can contribute |
+|---|---|---|
+| Importing a model / bone names / scene nodes | ✅ covered (`Import Game Unit Nodes`, compile against a reference skeleton) | **nothing to add** — use the tool |
+| Hiding the vanilla character, replacing look | ✅ covered (`set_unit_objects_visibility`, item data) | **nothing to add** |
+| Effects, particles, game shaders, dangle/jiggle bones, visibility groups | ✅ covered by the newer addon (particles, shaders, dangle/jiggle, visibility groups) | **nothing to add** — our earlier hand-rolled attempts here were wasted work |
+| Keeping the model's **own proportions** | ❌ deliberately cut off by the toolchain (the fit workflow warps the model) | **this is the gap.** What the engine forces on you, why it conflicts, and which compensations are already disproven — `03-falsified-paths.md` |
+| Contact points under goal B (feet, hands, weapon) | ❌ not covered | partial results only: the rigid-translation foot correction works (measured); the weapon contact point is **not finished** |
+| Unit-format facts, name-addressability, the `skin.joints ≤ 256` budget | ❌ not documented elsewhere | `01-unit-format.md`, `02-skeleton-completeness.md` |
+
+**⇒ The honest one-line placement:** the toolchain solves *"get a model in"*; these docs are only
+about *"get a model in **without adopting the game's proportions**"* — and on that road we have
+**one working correction and one open problem**, not a solution.
+
+---
+
 What it actually contains is the part that is usually missing: **how to get an external model
 into this engine family at all** — the unit resource format, the engine's name-addressability
 requirement, skeleton completeness, and **a record of the approaches that do not work**.
