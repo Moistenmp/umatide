@@ -39,6 +39,8 @@ complete way to do it. Where a statement here conflicts with the current toolcha
 | Keeping the model's **own proportions** | ❌ deliberately cut off by the toolchain (the fit workflow warps the model) | **this is the gap.** What the engine forces on you, why it conflicts, and which compensations are already disproven — `03-falsified-paths.md` |
 | Contact points under goal B (feet, hands, weapon) | ❌ not covered | partial results only: the rigid-translation foot correction works (measured); the weapon contact point is **not finished** |
 | Unit-format facts, name-addressability, the `skin.joints ≤ 256` budget | ❌ not documented elsewhere | `01-unit-format.md`, `02-skeleton-completeness.md` |
+| **Applying external motion to a skeleton whose proportions are ours** | ❌ not covered | **the derivable part of the gap.** The formula, the metric trap, and the measured improvement — `07-retargeting-math.md` |
+| Which approaches are structurally impossible (not merely untried) | ❌ not documented elsewhere | `03-falsified-paths.md` §P, `07-retargeting-math.md` §7 |
 
 **⇒ The honest one-line placement:** the toolchain solves *"get a model in"*; these docs are only
 about *"get a model in **without adopting the game's proportions**"* — and on that road we have
@@ -89,6 +91,8 @@ docs/
   03-falsified-paths.md        Approaches already disproven — with evidence and criteria
   04-cross-engine-ref.md       Comparison with the sibling engine family's conventions
   05-reproduce.md              Minimal reproduction recipe, marked verified / unverified
+  07-retargeting-math.md       ★ Applying external motion to our skeleton — the derivation,
+                               the measurement trap, and what is not yet established
   zh/                          Chinese originals of docs 01–05 (working notes, kept as-is)
 tools/                         Parameterized tools — **not ready yet**, see below
 NOTICE.md                      Copyright and scope boundaries — **read this too**
@@ -110,7 +114,11 @@ NOTICE.md                      Copyright and scope boundaries — **read this to
 | The name-addressability convention | ✅ verified, incl. cross-engine comparison |
 | Consequences of an incomplete skeleton | ✅ verified (offline + matches observed in-game behavior) |
 | List of disproven approaches | ✅ has in-game evidence |
+| **Applying external motion to our skeleton (the formula)** | ✅ **derived and measured offline** — `07-retargeting-math.md`. The naive formula is missing the parent's world delta; adding it cuts direction error by ~half (mean ↓31%, max ↓53%) |
+| **Which error metric to use** | ✅ **orientation error is dominated by roll and is misleading**; direction error is the one to use. Measured: a bone the orientation metric calls 149.81° wrong is 7.38° wrong in direction |
 | **Third-person weapon placement** | ⚠️ **not finished** — see `docs/05-reproduce.md` §4 |
+| **The retarget formula's own invariant check** | ⚠️ **not yet passed** — at bind the result should reproduce the bind local rotation; our check aborts before that, so the formula is "measured better", not "proved" |
+| **Attributing the residual error (direction vs roll)** | ⚠️ **not done** — the equation constrains direction only; roll needs its own convention |
 | Parameterized toolchain | ⚠️ **not ready** |
 | Model asset conversion pipeline | ⚠️ **not ready** |
 

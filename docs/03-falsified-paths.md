@@ -219,3 +219,109 @@ the name-driven systems line up by construction — weapon in hand, feet planted
 proportions become the game's).**
 
 **⇒ This section exists to record what the *other* goal runs into — not to claim it is the only goal.**
+
+---
+
+## M. Expecting the engine's own animations to drive our model by index alignment
+
+**What was done**: align our `.bones` name table to the game's indices (167/167 same index),
+on the premise that the engine's animation tracks bind to bones **by `.bones` index** —
+therefore, if our table matched the game's, the game's own 278 animations would drive us.
+
+**The premise turns out not to matter, because there is no readable input.**
+
+**What was measured** `[bytes]`: the game's own clips are Unity **humanoid muscle-space**:
+
+```
+AnimationClip.m_MuscleClip   m_IndexArray (200) · m_ValueArrayDelta (419)
+AnimationClip.m_FloatCurves / m_PositionCurves / m_RotationCurves / m_ScaleCurves   all len = 0
+```
+
+**⇒ There are no per-bone rotation curves to read.** Producing glTF from them would require redoing
+① the Unity packed-curve decoder and ② the muscle→bone solve (which depends on the character `Avatar`).
+**This route is not taken, and not because it is slow — because it is a different project.**
+
+**Two further facts that close it** `[observed]`:
+* The supported community route for driving our model from the game's skeleton is
+  `LINK_MODE_NODE_NAME`, and its documented cost is **that the model ends up with the game skeleton's proportions**.
+* The project's own "Lua driver" route (writing bone rotations per frame by index) **does work** —
+  that is a different thing from the engine's animations driving us.
+
+**⇒ What the index alignment *is* useful for**: it is a prerequisite for anything that addresses bones
+by the game's index space. It is **not** a source of motion.
+
+---
+
+## N. Replacing `breed.base_unit` — including through a resource-replacement API
+
+**What was done**: the player character's unit resource is declared by the breed:
+
+```
+scripts/settings/breed/breeds/human_breed.lua:19
+    base_unit = "content/characters/player/human/third_person/base"
+```
+
+Replacing that resource with a complete skinned character unit (by putting our unit at that path,
+or by asking a resource-replacement API to redirect lookups of that path).
+
+**What was observed** `[observed]`: **engine-level crash** — `<<Crash type>>engine<<`, no Lua error —
+**twice**, and **independent of whether the section list was complete**.
+
+**Why it was struck down**: that path is not "a unit that displays a body"; it is the character's
+**rig identity**. The engine's name-addressed systems (weapon attachment, hand/foot IK, aim, ground)
+and the weapon's own visible mesh are bound to *that* identity. Supplying a different object at that
+identity is not a data-shape problem, so completing the data does not help.
+
+**⇒ Consequence for "use a resource-replacement API to swap in our model":** those APIs replace
+*future lookups of a target resource path*. Applied to `base_unit`, they walk straight into this.
+Applied to the **weapon-side or item-side** resources they are not the same operation — but that is a
+**different target**, and its behaviour is **not yet measured**.
+
+**⇒ What does work** `[observed]`: do not replace the base unit. Instead
+**spawn our own unit + `World.link_unit(..., LINK_MODE_NONE)` + hide the vanilla body**
+(the route with in-game evidence behind it).
+
+---
+
+## O. Reordering `skin.joints` without reordering `inverseBindMatrices`
+
+**What was done**: permute the GLB's `skin.joints` (to bring our bones into the game's name order)
+and remap every primitive's `JOINTS_0`, leaving `skin.inverseBindMatrices` untouched.
+
+**What was observed** `[bytes]`:
+```
+IBM[i] pairs with joints[i]?     before: 226 / 254 consistent
+                                 after:    1 / 254
+rendered result: the entire mesh tore into threads
+compiler --validate:            valid UNIT v115        ← it did NOT stop it
+```
+
+**Why it was struck down**: in glTF, `inverseBindMatrices[i]` is paired **by index** with `joints[i]`.
+Permuting one without the other gives every bone another bone's inverse bind matrix. The compiler
+**copies the matrix array through**, so the corruption reaches the compiled unit — and the
+`skins` matrix block is byte-identical before and after, which is exactly what the mistake looks like.
+
+**⇒ Two lessons, and the second is the expensive one:**
+1. **If you reorder `joints`, you reorder `IBM`** — and if you add or drop joints, you add or drop IBM rows.
+2. **`valid UNIT v115` is a *form* gate, not a *semantics* gate.** A unit can be valid and render as thread.
+   Re-check the **semantic** invariants (per-vertex skinned world position against the baseline) separately.
+
+---
+
+## P. Bind-only "alignment terms" in the retargeting formula
+
+**What was done**: to fix a retargeting formula that was wrong at the arms and legs, multiply in an
+alignment term built from **bind** quantities — `A_bone = Rt(b)·Rs(b)⁻¹` — and search for the right
+insertion position (six positions tried).
+
+**What was observed** `[bytes]`: **all six positions were worse** (direction-error mean 80–94° against
+45.29° for the unmodified formula, same bone set).
+
+**Why it was struck down** — and this is the part worth keeping: `A_bone` **does not contain the frame
+index**. The term that is actually missing from the naive formula is the **parent's world delta**,
+`δs(p,τ) = Rs(p)⁻¹·Ws(p,τ)`, which **does** depend on the frame. No bind-only term can produce it.
+
+**⇒ It could not have worked, in any insertion position.** The search was wasted work that a single
+algebraic observation would have prevented.
+
+**⇒ See `07-retargeting-math.md` for the derivation and the measured improvement (mean ↓31%, max ↓53%).**
