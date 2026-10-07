@@ -93,6 +93,10 @@ docs/
   05-reproduce.md              Minimal reproduction recipe, marked verified / unverified
   07-retargeting-math.md       ★ Applying external motion to our skeleton — the derivation,
                                the measurement trap, and what is not yet established
+  08-source-animation-limits.md   Source-side native-animation limits (muscle-clip only,
+                               relay bone ceiling, frame-0 artifact)
+  09-source-rig-facts.md       Skeleton shape (435/199/236), family table, three traps
+  10-blender-gltf-pitfalls.md  Ten measured Blender->glTF export failures, all silent
   zh/                          Chinese originals of docs 01–05 (working notes, kept as-is)
 tools/                         Parameterized tools — **not ready yet**, see below
 NOTICE.md                      Copyright and scope boundaries — **read this too**
