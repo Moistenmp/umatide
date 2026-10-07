@@ -165,3 +165,11 @@ GOOD = D:\02_Projects\Darktide\_reference\_incoming_updates\Darktide-Asset-Compi
 5. 重启游戏 ⇒ 日志两行（§2.5）
 6. 若要走 locomotion 正解 ⇒ 见 §4-#1（blend base layer，需自己解）
 ```
+
+---
+
+> **范围声明（Scope and limitations）：** 由于本人的开发经验不足和技术判断有部分偏差，我的这些解法很多时候都走了大量试错，所以我能提供的只有一个验证过的通道，而非技术上的唯一解法
+>
+> *Due to my limited development experience and some deviations in my technical judgement, many of these solutions went through a great deal of trial and error, so what I can provide is only one verified path, not the only technical solution.*
+>
+> **⇒ 这是一条被验证过的通道，不是唯一解法。** 详见 `README.md` §7。

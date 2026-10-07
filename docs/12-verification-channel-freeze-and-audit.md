@@ -158,3 +158,11 @@ BAD  = D:\02_Projects\Darktide\_reference\tools\darktide-asset-compiler\unpacked
       [mf-smvar] #N ｜ 速度来源=locomotion ｜ move_speed=<随移动变化> ｜ 写入=ok(idx=N)
 6. 若手臂摆动平面仍不对 ⇒ 改 retarget 的 --roll b 重跑 §2.2
 ```
+
+---
+
+> **范围声明（Scope and limitations）：** 由于本人的开发经验不足和技术判断有部分偏差，我的这些解法很多时候都走了大量试错，所以我能提供的只有一个验证过的通道，而非技术上的唯一解法
+>
+> *Due to my limited development experience and some deviations in my technical judgement, many of these solutions went through a great deal of trial and error, so what I can provide is only one verified path, not the only technical solution.*
+>
+> **⇒ 这是一条被验证过的通道，不是唯一解法。** 详见 `README.md` §7。

@@ -169,3 +169,26 @@ If you find a claim that **does not hold**, say so and bring your evidence.
 see `NOTICE.md`.**
 
 **Suggested attribution:** *Based on "umatide" documentation — https://github.com/Moistenmp/umatide — CC BY 4.0.*
+
+
+---
+
+## 7. Scope and limitations · 范围声明
+
+> **原文（中文）**
+>
+> 由于本人的开发经验不足和技术判断有部分偏差，我的这些解法很多时候都走了大量试错，所以我能提供的只有一个验证过的通道，而非技术上的唯一解法
+>
+> **English (machine translation)**
+>
+> Due to my limited development experience and some deviations in my technical judgement, many of these solutions went through a great deal of trial and error, so what I can provide is only one verified path, not the only technical solution.
+
+**⇒ Applies to the whole repository.** What the documents here record is **one verified path
+through this problem — established by trial and error, not derived as the unique answer.**
+Where a claim is a measurement, the criterion for re-checking it is given next to it;
+where a claim is a judgement, read it as this author's judgement and not as a general law.
+
+**⇒ 适用于全仓库。** 这里的文档记录的是**一条被验证过的通道**——它是试错走出来的，
+**不是被证明为唯一的解法**。凡属测量的结论，旁边都给了复算判据；
+凡属判断的结论，请当作作者当时的判断，而不是一般规律。
+
