@@ -58,3 +58,13 @@ desktop.ini
 # temporary commit-message files (never commit these)
 CM.txt
 COMMIT_MSG.txt
+
+# --- ★ 对齐 uma 的 REPO_SCOPE_POLICY.md（2026-10-08）---
+# 判据：换一个模型/游戏后还有没有意义？没有 ⇒ 不入仓
+# 由游戏资产算出、内容即该资产结构的【清单类】
+docs/13-*.md
+docs/14-*.md
+*_bones.txt
+*_name_table.*
+*_weight_stats.*
+*_reverse_*.md
