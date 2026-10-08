@@ -9,6 +9,8 @@ id_rsa*
 # ── 游戏资源与反编译产物（绝不能入库，见 NOTICE.md）──────
 *.unit
 *.bones
+*.animation
+*.state_machine
 *.material
 *.texture
 *.dds

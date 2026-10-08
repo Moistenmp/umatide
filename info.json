@@ -1,0 +1,21 @@
+{
+	"name": "umatide",
+	"description": "Import an external character model into Darktide and let the engine drive it, instead of replacing it at runtime.",
+	"version": "0.1.0",
+	"author": "Moistenmp",
+	"homepage": "https://github.com/Moistenmp/umatide",
+	"source": "https://github.com/Moistenmp/umatide",
+	"dependencies": {
+		"required": [
+			"DMF",
+			"SimpleAssets",
+			"CustomAssets"
+		]
+	},
+	"localization": {
+		"zh-cn": {
+			"name": "umatide",
+			"description": "把外部角色模型导入暗潮，并让引擎去驱动它，而不是在运行期替换它。"
+		}
+	}
+}
