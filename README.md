@@ -1,10 +1,11 @@
 # umatide
 
-**A toolchain for importing external character models into Darktide.**
+**An independent Darktide mod that hands an external character model to the engine, instead of
+replacing the game's model at runtime.**
 
-Status: **personal / early.** Not a finished mod, and not a "drop-in model replacement".
+Status: **personal / early.** The mod scaffold exists and its single switch is off by default.
 
-## 0. Read this before trusting anything here (added 2026-10-07)
+## 0. Read this before trusting anything here
 
 **We are in the testing stage, and we have not fully absorbed the community toolchain.**
 
@@ -15,17 +16,62 @@ That is not a formality. Two concrete things happened while writing these docs:
    *"Replacing the game's own units"* — and the newer addon ships an operator called
    **`Import Game Unit Nodes`** that does, as a button, the exact thing three of our documents
    describe as hard: bring in **every node of the unit being replaced, named and placed like
-   the game's**, including hash-only nodes (`#1234abcd`).
-2. **Our own asset fails the newer addon's parser**: `_parse_bones` rejects our `.bones` with
-   `BONES LOD table is invalid`. The compiler's `--validate` had already flagged our unit as
-   `invalid` (`synthetic UNIT root SceneGraph linkage changed`). So **the asset this repo
-   describes is not a well-formed unit by the toolchain's own standards** — it loads, but it is
-   not something we can call "correct".
+   the game's**, including hash-only nodes (`#1234abcd`). Its implementation is
+   `addon/darktide_assets/game_unit.py`, and the module docstring states the reason plainly:
+   the game finds attach points, effect points and animated nodes **by name**, so a replacement
+   unit has to carry the same names in the same places.
+
+2. **Our own asset failed the newer addon's parser and the compiler's validator.** At the time,
+   `_parse_bones` rejected our `.bones` with `BONES LOD table is invalid`, and `--validate`
+   reported `invalid` with `synthetic UNIT root SceneGraph linkage changed`.
+
+   **⇒ ⚠ Status update (2026-10-08): both of those now pass.** Re-measured on the current build:
+
+   ```
+   --validate  ⇒ valid UNIT v115 ｜ 9 packed mesh primitive(s) ｜ 9 skinned
+                 ｜ 318 SceneGraph node(s) ｜ 9 material slot(s)
+                 ｜ 20 physics actor(s) (20 in PhysX collection)
+                 ｜ simple animation 256 track(s) ｜ 1,199,942 bytes
+   _parse_bones ⇒ parses cleanly
+                 (['root_point', 'j_hips_transform', 'j_hips', 'j_leftupleg',
+                   'j_leftleg', 'j_leftfoot', 'j_lefttoebase', 'toe_l', …])
+   ```
+
+   **The two blockers recorded here on 2026-10-07 no longer hold**, and the self-assessment that
+   followed from them was therefore too pessimistic. What replaced the old failure mode is a real
+   constraint rather than a malformed asset — see §7 and the note on the two goals below.
 
 **⇒ So treat these docs as:** notes on *what the engine family requires and why the two goals
 conflict* — which we believe still holds — **not** as a claim that we have found the best or the
 complete way to do it. Where a statement here conflicts with the current toolchain's behaviour,
 **the toolchain is right.**
+
+### 0.0 What this mod does, and how it differs from the community replacements
+
+The community replacements we have taken apart — `SimplySimpleDogReplacer`, and the Citlali
+script our own attach layer was aligned to — all work the same way: wait for the game to spawn
+the original unit, hide it, spawn a **separate** purely visual unit beside it, and copy the
+transform every frame. That visual unit is spawned with `spawn_with_extensions = false`, so it
+receives **no gameplay extensions at all** — no animation system, no visual loadout, no attach
+points — and the mod has to drive every one of those itself. That is why those mods are large:
+the dog replacer carries 884 lines of animation code and 80 KB of visual plumbing.
+
+This mod takes the opposite route. Before any player unit is spawned, it points the player's own
+rig resource,
+
+```
+content/characters/player/human/third_person/base
+```
+
+— the `base_unit` from `scripts/settings/breed/breeds/human_breed.lua` — at **our** unit, using
+`SimpleAssets.replace_unit`. The player's own spawn chain then loads our model, and because that
+chain carries a `unit_template`, the extension manager appends the **full player extension set**
+on top of it. Animation, visual loadout, aim and locomotion come from the game rather than from
+us. The whole implementation is one call.
+
+Keeping the model while letting the engine drive it is the point. We are not trying to copy the
+original animations onto our skeleton; we are trying to have the engine play them, on our
+proportions, because that is the only version that scales to more than one model.
 
 ---
 
@@ -84,6 +130,14 @@ What goal B forces you to deal with, and what we found while doing so:
 ## 2. Layout
 
 ```
+umatide.mod                    DMF entry point (new_mod + mod_script / mod_data / mod_localization)
+info.json                      Mod metadata and prerequisites (DMF, SimpleAssets, CustomAssets)
+scripts/mods/umatide/
+  umatide.lua                  The whole mod: one SimpleAssets.replace_unit call, behind a switch
+  umatide_data.lua             Settings (rig_replace, default off)
+  umatide_localization.lua     Strings (en + zh-cn)
+assets/units/                  The compiled model — **not tracked**, see §6 and .gitignore
+
 docs/
   06-toolchain-landscape.md    ★ START HERE: what the existing toolchain covers, and where this repo sits
   01-unit-format.md            Unit resource format: sections, hashes, local transform block, name resolution
@@ -97,6 +151,8 @@ docs/
                                relay bone ceiling, frame-0 artifact)
   09-source-rig-facts.md       Skeleton shape (435/199/236), family table, three traps
   10-blender-gltf-pitfalls.md  Ten measured Blender->glTF export failures, all silent
+  11-stage-closeout-…          Where the Darktide side of the work stands
+  12-verification-channel-freeze-and-audit.md   Which verification channels are trustworthy
   zh/                          Chinese originals of docs 01–05 (working notes, kept as-is)
 tools/                         Parameterized tools — **not ready yet**, see below
 NOTICE.md                      Copyright and scope boundaries — **read this too**
@@ -107,6 +163,12 @@ NOTICE.md                      Copyright and scope boundaries — **read this to
 > Publishing them as-is would only produce scripts nobody can follow.
 > They will be added once they are configuration-driven — **swapping in another model
 > should not require editing code.** Better late than misleading.
+
+> **⚠ The `assets/` directory is not empty on a working install, but it is not tracked.**
+> The compiled `.unit`, `.bones` and `.animation` files are produced by the compiler and stay
+> out of the repository, in line with the scope policy in §7 — see `docs/05-reproduce.md` for how
+> to build them. The mod will load without them; it will simply have nothing to point at, and its
+> one switch is off by default.
 
 ---
 
