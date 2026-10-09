@@ -3,7 +3,12 @@
 **An independent Darktide mod that hands an external character model to the engine, instead of
 replacing the game's model at runtime.**
 
-Status: **personal / early.** The mod scaffold exists and its single switch is off by default.
+Status: **personal / early.** The mod scaffold exists; attachment is implemented as
+spawn + name-based link, with the original visible body handed over. The earlier fixture mods
+used to develop this on the Darktide side (`MfTest`, `ModelForge`) have been **retired**, so the
+load order is now `CustomAssets → umatide`. **The in-game check of the three acceptance criteria
+(model appears · follows · weapon in hand) is the next step and had not been run when this line
+was written** — see §3, which says exactly what is verified and what is not.
 
 ## 0. Read this before trusting anything here
 
@@ -50,28 +55,38 @@ complete way to do it. Where a statement here conflicts with the current toolcha
 
 The community replacements we have taken apart — `SimplySimpleDogReplacer`, and the Citlali
 script our own attach layer was aligned to — all work the same way: wait for the game to spawn
-the original unit, hide it, spawn a **separate** purely visual unit beside it, and copy the
-transform every frame. That visual unit is spawned with `spawn_with_extensions = false`, so it
+the original unit, hide it, spawn a **separate** purely visual unit beside it, and drive what the
+engine does not. That visual unit is spawned with `spawn_with_extensions = false`, so it
 receives **no gameplay extensions at all** — no animation system, no visual loadout, no attach
 points — and the mod has to drive every one of those itself. That is why those mods are large:
 the dog replacer carries 884 lines of animation code and 80 KB of visual plumbing.
 
-This mod takes the opposite route. Before any player unit is spawned, it points the player's own
-rig resource,
+This mod takes the **same attachment route but keeps the driving with the engine**. It spawns our
+unit, links it to the player's unit by name,
 
-```
-content/characters/player/human/third_person/base
+```lua
+World.link_unit(world, our, 1, player_unit, 1, World.LINK_MODE_NODE_NAME)
 ```
 
-— the `base_unit` from `scripts/settings/breed/breeds/human_breed.lua` — at **our** unit, using
-`SimpleAssets.replace_unit`. The player's own spawn chain then loads our model, and because that
-chain carries a `unit_template`, the extension manager appends the **full player extension set**
-on top of it. Animation, visual loadout, aim and locomotion come from the game rather than from
-us. The whole implementation is one call.
+and that is the whole mechanism. Our compiled unit carries the game character's node names in the
+same places (that is what the asset toolchain's *Import Game Unit Nodes* step is for, and where
+**fviuff**'s compiler and patcher do the work), so name-based linking maps bone to bone. Animation,
+weapon attachment, aim and locomotion then come from the game rather than from us — we do not write
+bones, do not copy transforms frame by frame, and do not reorganise the weapon.
+
+There is exactly one runtime thing on our side: the original visible body has to give way. The game
+re-shows those slots on every visibility update, so we re-hide them **in the same frame, right after
+the game's own call** — that ordering is what stops the original body from flickering back.
 
 Keeping the model while letting the engine drive it is the point. We are not trying to copy the
 original animations onto our skeleton; we are trying to have the engine play them, on our
 proportions, because that is the only version that scales to more than one model.
+
+> **A route we tried and abandoned: `SimpleAssets.replace_unit`.** Pointing the player's own rig
+> resource (`content/characters/player/human/third_person/base`) at our unit was the earlier plan,
+> and it is no longer the one being used — on this game build it does not take effect for any unit,
+> ours or the game's own. The scaffold for it is gone from the mod; see `03-falsified-paths.md`.
+
 
 ---
 
@@ -131,12 +146,15 @@ What goal B forces you to deal with, and what we found while doing so:
 
 ```
 umatide.mod                    DMF entry point (new_mod + mod_script / mod_data / mod_localization)
-info.json                      Mod metadata and prerequisites (DMF, SimpleAssets, CustomAssets)
+info.json                      Mod metadata and prerequisites (**DMF, CustomAssets**)
 scripts/mods/umatide/
-  umatide.lua                  The whole mod: one SimpleAssets.replace_unit call, behind a switch
-  umatide_data.lua             Settings (rig_replace, default off)
+  umatide.lua                  Entry point: policy defaults, package acquisition, /umatide command
+  umatide_attach.lua           ★ The only attachment channel: spawn + link + visibility handover
+  umatide_data.lua             Mod metadata (deliberately registers **no DMF widgets** — see its header)
   umatide_localization.lua     Strings (en + zh-cn)
-assets/units/                  The compiled model — **not tracked**, see §6 and .gitignore
+Custom/AgnesDigital/           The compiled model, registered through the Custom Assets package registry
+assets/rig/                    Earlier rig-level builds (not on the attachment path)
+tools/                         Repo-local helpers for the Darktide side
 
 docs/
   06-toolchain-landscape.md    ★ START HERE: what the existing toolchain covers, and where this repo sits
@@ -154,21 +172,23 @@ docs/
   11-stage-closeout-…          Where the Darktide side of the work stands
   12-verification-channel-freeze-and-audit.md   Which verification channels are trustworthy
   zh/                          Chinese originals of docs 01–05 (working notes, kept as-is)
-tools/                         Parameterized tools — **not ready yet**, see below
 NOTICE.md                      Copyright and scope boundaries — **read this too**
 ```
 
-> **`tools/` is intentionally empty for now.**
-> The prototypes were written for a single model (hardcoded model names and paths).
-> Publishing them as-is would only produce scripts nobody can follow.
-> They will be added once they are configuration-driven — **swapping in another model
-> should not require editing code.** Better late than misleading.
+> **How attachment actually works now (2026-10-09).** The mod spawns our unit and links it to the
+> player's unit with `World.link_unit(world, our, 1, player, 1, World.LINK_MODE_NODE_NAME)` — the
+> same way the game mounts gear (`visual_loadout_customization.lua`) and the same way the community
+> replacement **QIangIQsCitlali** (author QIangIQ, Nexus 1391) does it, whose script is what our
+> attachment layer was aligned to. The engine then maps the two units' same-named nodes onto each
+> other, so animation, weapon attachment, aim and locomotion all come from the engine. We do **not**
+> write bones, do **not** write transforms every frame, and do **not** reorganise the weapon. The one
+> runtime thing we do is hand over the original visible body's slot visibility (`slot_body*`,
+> `slot_gear*`, `slot_base*` — weapon slots are explicitly excluded), re-applied in the same frame
+> right after the game's own `EquipmentComponent.update_item_visibility`.
+>
+> Credit for the asset side belongs to **fviuff** (Darktide Asset Compiler + Custom Assets patcher);
+> our `.unit` / `.bones` are its output, and the name-addressability requirement comes from its docs.
 
-> **⚠ The `assets/` directory is not empty on a working install, but it is not tracked.**
-> The compiled `.unit`, `.bones` and `.animation` files are produced by the compiler and stay
-> out of the repository, in line with the scope policy in §7 — see `docs/05-reproduce.md` for how
-> to build them. The mod will load without them; it will simply have nothing to point at, and its
-> one switch is off by default.
 
 ---
 
@@ -183,6 +203,9 @@ NOTICE.md                      Copyright and scope boundaries — **read this to
 | **Applying external motion to our skeleton (the formula)** | ✅ **derived and measured offline** — `07-retargeting-math.md`. The naive formula is missing the parent's world delta; adding it cuts direction error by ~half (mean ↓31%, max ↓53%) |
 | **Which error metric to use** | ✅ **orientation error is dominated by roll and is misleading**; direction error is the one to use. Measured: a bone the orientation metric calls 149.81° wrong is 7.38° wrong in direction |
 | **Third-person weapon placement** | ⚠️ **not finished** — see `docs/05-reproduce.md` §4 |
+| **Attachment path (spawn + `LINK_MODE_NODE_NAME` + slot visibility handover)** | ⚠️ **implemented, deployed byte-identical to this repo, but the in-game check had not been run at the time of writing.** The offline facts it rests on *are* verified — see the next two rows |
+| Our unit's scene graph: single parentless node = engine node 1; `j_hips` 28, `j_head` 84, `j_righthand` 207, `j_rightweaponattach` 228, `j_leftweaponattach` 71 | ✅ verified offline (`--validate`-style parse of the compiled unit; same shape as the community Citlali unit, whose single root is also node 1) |
+| The game-side contracts the attach layer uses (`PlayerUnitVisualLoadoutExtension._unit/_equipment/_static_profile_properties`, the husk twin, `EquipmentComponent.update_item_visibility(equipment, wielded_slot, unit_3p, unit_1p, fp_mode, item_defs)` being called per slot) | ✅ verified in the 1.13.0 decompiled source |
 | **The retarget formula's own invariant check** | ⚠️ **not yet passed** — at bind the result should reproduce the bind local rotation; our check aborts before that, so the formula is "measured better", not "proved" |
 | **Attributing the residual error (direction vs roll)** | ⚠️ **not done** — the equation constrains direction only; roll needs its own convention |
 | Parameterized toolchain | ⚠️ **not ready** |

@@ -2,26 +2,27 @@ return {
 	umatide = {
 		mod_name = {
 			en = "umatide",
-			["zh-cn"] = "umatide",
 		},
 		mod_description = {
-			en = "Import an external character model into Darktide and let the engine drive it, "
-				.. "instead of replacing it at runtime.",
-			["zh-cn"] = "把外部角色模型导入暗潮，并让引擎去驱动它，而不是在运行期替换它。",
+			en = "Bring an external character model into Darktide as its own unit and let the engine "
+				.. "drive it (animation, weapons, aim, locomotion), instead of replacing the player's "
+				.. "body resource at runtime.",
 		},
-		rig_replace = {
-			en = "Take over the player rig resource",
-			["zh-cn"] = "接管玩家骨架资源",
+		model_enabled = {
+			en = "Show the model",
 		},
-		rig_replace_tooltip = {
-			en = "Point content/characters/player/human/third_person/base at our own unit, so the player's own "
-				.. "spawn chain loads our model and the engine mounts the full player extension set on it "
-				.. "(animation, visual loadout, aim, locomotion). Off by default: with it off this mod changes "
-				.. "nothing. It only affects units spawned after registration.",
-			["zh-cn"] = "把 content/characters/player/human/third_person/base 指向我们自己的 unit，"
-				.. "使玩家自己的 spawn 链加载我们的模型，并由引擎在其上挂载全套玩家扩展"
-				.. "（动画、视觉挂载、瞄准、移动）。默认关闭：关闭时本 mod 不改变任何行为。"
-				.. "它只影响注册之后新生成的单位。",
+		model_enabled_tooltip = {
+			en = "Spawn our unit, link it to the player unit with LINK_MODE_NODE_NAME and hand the "
+				.. "driving to the engine. Off removes our unit and restores the vanilla body. "
+				.. "/umatide on|off does the same in game.",
+		},
+		hide_vanilla_body = {
+			en = "Hide the original visible body",
+		},
+		hide_vanilla_body_tooltip = {
+			en = "The game sets the vanilla body parts back to visible on every visibility update; "
+				.. "they are hidden again in the same frame, right after the game's own call. "
+				.. "Weapon slots are explicitly excluded.",
 		},
 	},
 }

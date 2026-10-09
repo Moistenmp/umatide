@@ -1,149 +1,284 @@
 --[[
-	umatide.lua —— 把外部角色模型【作为原版资源】交给引擎，而不是在运行期替换它
+	umatide.lua —— entry point: load our package, hand attachment to umatide_attach.lua
 
-## 它与社区做法（QIangIQsCitlali / SimplySimpleDogReplacer）的根本差别
+## What this mod does
 
-社区做法：**隐形替身**
-   · 等游戏把原单位生成出来
-   · 把原单位隐藏（渲染 + scene query）
-   · 旁边【另生成】一个纯视觉单位
-   · 每帧抄 transform
-   ⇒ 代价：视觉体【不注册 gameplay 扩展】（`spawn_with_extensions = false`）
-     ⇒ ⇒ 它【拿不到动画系统/武器挂载/挂点】⇒ 这些都要自己做
+  Brings an external character model (Agnes Digital) into Darktide as its **own unit**,
+  driven natively by the engine (not a runtime replacement of the player's body resource):
 
-本 mod 做法：**占据资源名**
-   · 在【玩家单位生成之前】把
-       content/characters/player/human/third_person/base
-     这个资源名指向【我们的 unit】
-   · 之后玩家 spawn 链加载到的就是我们的 unit
-   ⇒ ⇒ 而玩家 spawn 链【自带 unit_template】⇒ 扩展管理器按它添加【全套玩家扩展】
-     ⇒ ⇒ ⇒ 动画（AuthoritativePlayerUnitAnimationExtension）/ 视觉挂载（PlayerUnitVisualLoadoutExtension）
-           / 瞄准 / 移动 / 生命 … 全部【原生接管】
-   ⇒ 代价：无需运行期补任何东西（这正是我们要的）
+    Custom Assets package (resources) --> umatide_attach.lua (spawn + link + visibility handover)
+                                                     |
+                                        engine drives by bone name: animation / weapon
+                                        attach points / aim / locomotion
 
-## 为什么用 SimpleAssets.replace_unit 而不是编译期 --asset-path
+## Dependencies
 
-两条都能达到目的，但：
-  · replace_unit 是【社区件的能力】⇒ 与社区做法对齐，且不依赖我们自己的编译约定
-  · 它的语义（SimpleAssets 文档原文）：
-      "Replacement functions load a source asset and then replace future engine lookups
-       of a target resource."
-      "replace_unit affects units spawned AFTER its Promise resolves;
-       it does not change a unit that is already present in a world."
-  ⇒ ⇒ 所以【必须在玩家生成之前注册】—— 本文件在 mod 加载时立即注册。
+  · **DMF**          -- mod framework (hooks, logging, chat commands)
+  · **CustomAssets** -- resource layer: registers and loads our compiled .unit / .bones / materials
+  · ~~SimpleAssets~~ -- no longer needed: the "replace a resource name at runtime" route does
+                        not take effect on this game build
 
-## 现状
+## Recipe provenance (rewritten, not copied)
 
-★ 默认【关】（`rig_replace = false`）⇒ 不改变任何现有行为。
-★ 打开方式：见 umatide_data.lua。
+  · attachment recipe: community mod QIangIQsCitlali (author QIangIQ, Nexus 1391)
+  · asset toolchain:   fviuff's Darktide Asset Compiler and Custom Assets patcher
+
+## Log contract
+
+  Every line is English and greppable, with lua field names kept as-is, e.g.:
+    [umatide][hook] / [umatide][diag] / [umatide][probe] / [umatide][pkg]
+
+## Setting convention
+
+  Behaviour defaults live in DEFAULTS below and are read through cfg(); `mod:get` only
+  overrides. Measured twice on this project: DMF's settings table is never garbage collected,
+  so "no widget in the UI" once meant "reads an old garbage value" and silently turned the
+  behaviour off.
 ]]
 
 local mod = get_mod("umatide")
 
-local Umatide = {}
+mod.VERSION = "0.3.1"
 
--- 玩家骨架 rig 的资源名（出处：scripts/settings/breed/breeds/human_breed.lua:L19
---   base_unit = "content/characters/player/human/third_person/base"）
-Umatide.TARGET_RIG = "content/characters/player/human/third_person/base"
+-- ────────────────────────────────────────────────────────────────────────────
+-- policy layer
+-- ────────────────────────────────────────────────────────────────────────────
 
--- 我们的 unit：相对【本 mod 的 assets 目录】（SimpleAssets 的路径规则）
---   mods/umatide/assets/units/agnes_test_all.unit
-Umatide.SOURCE_UNIT = "units/agnes_test_all.unit"
+local DEFAULTS = {
+	-- master switch (on by default: showing this model is the point of the mod)
+	model_enabled = true,
 
-Umatide.done = false
-Umatide.result = nil
+	-- let the vanilla visible body give way (required for attaching; off means overlap)
+	hide_vanilla_body = true,
+
+	-- our Custom Assets package. Truth source: generated\manifest.lua, entry with
+	-- logical_id = "umatide:AgnesDigital" -> its package_name field
+	package_ids = {
+		"umatide:AgnesDigital",
+	},
+
+	-- our compiled unit. Truth source: Custom/AgnesDigital/compile_manifest.json "asset_path"
+	-- (umatide_attach.lua owns the authoritative value and overwrites this at load)
+	unit = "content/mods/umatide/agnes_digital.unit",
+}
+
+local function cfg(key)
+	local v = mod:get(key)
+	if v == nil then
+		return DEFAULTS[key]
+	end
+	return v
+end
+
+-- queries used by umatide_attach.lua (so it does not read the settings itself)
+mod.umatide_cfg_bool = function (key)
+	return cfg(key) ~= false
+end
+mod.umatide_model_on = function ()
+	return cfg("model_enabled") ~= false
+end
 
 local function log(fmt, ...)
-	mod:info("[umatide] " .. fmt, ...)
-end
-
--- ─────────────────────────────────────────────────────────────────────────────
--- 注册（只做一次）
--- ─────────────────────────────────────────────────────────────────────────────
-function Umatide.install()
-	if Umatide.done then
-		return
-	end
-	Umatide.done = true
-
-	-- 开关：只在显式打开时动作（默认关 ⇒ 零副作用）
-	local on = mod:get("rig_replace")
-	if on ~= true then
-		log("rig_replace 未开启 ⇒ 不注册资源替换（本 mod 当前不改变任何行为）")
-		log("  目标 = %s", Umatide.TARGET_RIG)
-		log("  源件 = %s", Umatide.SOURCE_UNIT)
-		return
-	end
-
-	local SimpleAssets = get_mod("SimpleAssets")
-	if not SimpleAssets then
-		mod:error("需要 SimpleAssets（info.json 已声明为前置）。未找到 ⇒ 不注册。")
-		return
-	end
-	if type(SimpleAssets.replace_unit) ~= "function" then
-		mod:error("SimpleAssets 在场但【没有 replace_unit】⇒ 版本过旧？不注册。")
-		return
-	end
-
-	log("★ 注册资源替换：%s  ←  %s", Umatide.TARGET_RIG, Umatide.SOURCE_UNIT)
-
-	-- replace_unit 返回 Promise；结果里 is_ok / target_resource_name / source_resource_name / error
-	local ok, promise_or_err = pcall(SimpleAssets.replace_unit, Umatide.TARGET_RIG, Umatide.SOURCE_UNIT)
-	if not ok then
-		mod:error("replace_unit 调用抛错：%s", tostring(promise_or_err))
-		return
-	end
-
-	if type(promise_or_err) == "table" and promise_or_err.next then
-		promise_or_err:next(function(result)
-			Umatide.result = result
-			if result and result.is_ok then
-				log("✅ 替换已注册：target=%s ｜ source=%s",
-					tostring(result.target_resource_name), tostring(result.source_resource_name))
-				log("   ⇒ 此后【新生成】的玩家单位会用我们的 unit；已存在的单位不重建。")
-			else
-				mod:error("替换失败：is_ok=%s ｜ error=%s",
-					tostring(result and result.is_ok), tostring(result and result.error))
-			end
-		end, function(err)
-			mod:error("替换 Promise 被拒：%s", tostring(err))
-		end)
+	local ok, msg = pcall(string.format, "[umatide] " .. fmt, ...)
+	if ok then
+		mod:info("%s", msg)
 	else
-		log("replace_unit 返回了非 Promise：%s", tostring(promise_or_err))
+		mod:info("[umatide] (format error) %s", tostring(fmt))
 	end
 end
 
--- ─────────────────────────────────────────────────────────────────────────────
--- 入口
--- ─────────────────────────────────────────────────────────────────────────────
-mod.on_all_mods_loaded = function()
-	Umatide.install()
+-- ────────────────────────────────────────────────────────────────────────────
+-- resources: hand our package to Custom Assets
+-- ────────────────────────────────────────────────────────────────────────────
+
+local custom_assets = nil
+local ready = {}
+local requested = {}
+local ready_n = 0
+
+mod.umatide_ready = function ()
+	return ready_n > 0
 end
 
--- 兜底：若 on_all_mods_loaded 未被触发，则首次 update 时注册
---   （仍然【早于】玩家单位生成 —— update 在进入任务之前就跑）
-local tried_update = false
-mod.update = function()
-	if not tried_update then
-		tried_update = true
-		if not Umatide.done then
-			Umatide.install()
+local function acquire(id)
+	if type(id) ~= "string" or id == "" or requested[id] then
+		return
+	end
+	requested[id] = true
+	if not custom_assets then
+		return
+	end
+	local ok, ticket, err = pcall(function ()
+		return custom_assets.acquire(mod, id, function (_, _, load_error)
+			if load_error then
+				mod:error("[umatide][pkg] load failed id=%s err=%s (run CUSTOM_ASSETS_PATCH.bat with the game closed)",
+					tostring(id), tostring(load_error))
+				return
+			end
+			ready[id] = true
+			ready_n = ready_n + 1
+			mod:info("[umatide][pkg] ready id=%s", tostring(id))
+		end, { resident = true })
+	end)
+	if not ok then
+		mod:error("[umatide][pkg] acquire raised id=%s err=%s", tostring(id), tostring(ticket))
+		return
+	end
+	if ticket == nil then
+		mod:error("[umatide][pkg] acquire refused id=%s err=%s", tostring(id), tostring(err))
+		return
+	end
+	log("[pkg] requested id=%s", tostring(id))
+end
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- prerequisite self report
+--   The predicate must be `get_mod(name) ~= nil`: DMF mods are not globals, so
+--   rawget(_G, ...) reports every present prerequisite as missing (measured false negative).
+-- ────────────────────────────────────────────────────────────────────────────
+
+local function report_prereqs()
+	for _, name in ipairs({ "DMF", "CustomAssets" }) do
+		log("[prereq] %s=%s", name, get_mod(name) ~= nil and "ok" or "MISSING")
+	end
+end
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- boot
+-- ────────────────────────────────────────────────────────────────────────────
+
+local booted = false
+
+mod.on_all_mods_loaded = function ()
+	if booted then
+		return
+	end
+	booted = true
+
+	log("[load] version=%s channel=spawn+link (engine native driving)", mod.VERSION)
+	report_prereqs()
+
+	local Attach = mod:io_dofile("umatide/scripts/mods/umatide/umatide_attach")
+	-- path convention matches DMF itself (dmf_loader.lua:17-27):
+	--   <mod>/scripts/mods/<mod>/<file>, no .lua
+	if type(Attach) ~= "table" then
+		mod:error("[umatide] attach module failed to load, mod will do nothing")
+		return
+	end
+	if type(Attach.UNIT) == "string" and Attach.UNIT ~= "" then
+		DEFAULTS.unit = Attach.UNIT     -- single truth source: the line in the attach module
+	end
+
+	local ca = get_mod("CustomAssets")
+	if not ca then
+		mod:error("[umatide] CustomAssets not found (required), not attaching")
+		return
+	end
+	if ca.is_api_compatible and not ca.is_api_compatible(1) then
+		mod:error("[umatide] CustomAssets API is not 1, not attaching")
+		return
+	end
+	custom_assets = ca
+
+	local ids = cfg("package_ids")
+	if type(ids) ~= "table" or #ids == 0 then
+		mod:error("[umatide] package_ids is not set, not attaching")
+		return
+	end
+	for i = 1, #ids do
+		acquire(ids[i])
+	end
+
+	Attach.install()
+end
+
+-- per frame: the package is asynchronous, so retry and keep the handover applied from here.
+-- Also carries the periodic summariser (below) so that a session always leaves evidence.
+local summarise_at = 900        -- about 15 s at 60 fps
+local gameplay_seen = false     -- set by on_game_state_changed (defined below), read here
+
+mod.update = function ()
+	if not booted then
+		return
+	end
+	local A = mod.UmatideAttach
+	if A and A.tick then
+		pcall(A.tick)
+	end
+	if A and A.diag then
+		local tick = A.diag.tick
+		if tick >= summarise_at then
+			summarise_at = summarise_at + 900
+			local has_world = Managers.world ~= nil and Managers.world:world("level_world") ~= nil
+			if A.diag_report then
+				A.diag_report(string.format("periodic tick=%d level_world=%s gameplay_seen=%s",
+					tick, tostring(has_world), tostring(gameplay_seen)))
+			end
 		end
 	end
 end
 
--- 控制台命令：查看状态 / 手动注册
-mod:command("umatide", "umatide 状态", function()
-	log("状态：已注册=%s ｜ 开关=%s", tostring(Umatide.done), tostring(mod:get("rig_replace")))
-	log("  目标 = %s", Umatide.TARGET_RIG)
-	log("  源件 = %s", Umatide.SOURCE_UNIT)
-	if Umatide.result then
-		log("  结果：is_ok=%s ｜ target=%s ｜ source=%s ｜ error=%s",
-			tostring(Umatide.result.is_ok), tostring(Umatide.result.target_resource_name),
-			tostring(Umatide.result.source_resource_name), tostring(Umatide.result.error))
+-- setting change -> recompute immediately
+-- NOTE: this mod registers NO DMF widget (see umatide_data.lua), so this callback normally
+-- never fires; it is kept so that adding a widget later needs no structural change. The
+-- immediate effect today comes from /umatide on|off calling refresh directly.
+mod.on_setting_changed = function ()
+	if booted and mod.UmatideAttach and mod.UmatideAttach.refresh then
+		pcall(mod.UmatideAttach.refresh)
+	end
+end
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- self proof on entering gameplay
+--
+-- Why: two runs in a row produced a log that could not tell "never called" from
+-- "called and returned early". This dumps the decisive counters the moment a gameplay
+-- state is entered, with nobody having to type a command.
+-- ────────────────────────────────────────────────────────────────────────────
+
+mod.on_game_state_changed = function (status, state)
+	if status ~= "enter" then
+		return
+	end
+	local s = tostring(state)
+	if s == "StateGameplay" or s == "GameplayStateInit" then
+		gameplay_seen = true
+		local A = mod.UmatideAttach
+		if A and A.diag_report then
+			A.diag_report("entered gameplay state=" .. s)
+		end
+	end
+end
+
+-- manual toggle: /umatide on|off applies immediately, /umatide diag dumps the counters
+local function apply_toggle(on)
+	mod:set("model_enabled", on, true)
+	if booted and mod.UmatideAttach and mod.UmatideAttach.refresh then
+		pcall(mod.UmatideAttach.refresh)
+	end
+	mod:echo("umatide model_enabled=%s", tostring(on))
+end
+
+mod:command("umatide", "umatide: on / off / diag / (no arg = status)", function (arg)
+	local a = tostring(arg or ""):lower()
+	if a == "on" or a == "1" then
+		apply_toggle(true)
+	elseif a == "off" or a == "0" then
+		apply_toggle(false)
+	elseif a == "diag" then
+		local A = mod.UmatideAttach
+		if A and A.diag then
+			A.diag_report("manual /umatide diag")
+			mod:echo("umatide diag tick=%s attach_calls=%s mine=%s attached=%s pkg_ready=%s",
+				tostring(A.diag.tick), tostring(A.diag.calls), tostring(A.diag.mine),
+				tostring(A.attached_count and A.attached_count() or 0), tostring(A.diag.ready_seen))
+		else
+			mod:echo("umatide attach module not loaded (booted=%s)", tostring(booted))
+		end
 	else
-		log("  结果：尚未返回")
+		mod:echo("umatide %s | model_enabled=%s | packages_ready=%d | unit=%s | /umatide diag for counters",
+			mod.VERSION, tostring(mod.umatide_model_on()), ready_n, tostring(cfg("unit")))
 	end
 end)
 
-return Umatide
+return mod

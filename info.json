@@ -1,21 +1,20 @@
 {
 	"name": "umatide",
-	"description": "Import an external character model into Darktide and let the engine drive it, instead of replacing it at runtime.",
-	"version": "0.1.0",
+	"description": "Bring an external character model into Darktide as its own unit and let the engine drive it, instead of replacing the player's body resource at runtime.",
+	"version": "0.3.0",
 	"author": "Moistenmp",
 	"homepage": "https://github.com/Moistenmp/umatide",
 	"source": "https://github.com/Moistenmp/umatide",
 	"dependencies": {
 		"required": [
 			"DMF",
-			"SimpleAssets",
 			"CustomAssets"
 		]
 	},
 	"localization": {
 		"zh-cn": {
 			"name": "umatide",
-			"description": "把外部角色模型导入暗潮，并让引擎去驱动它，而不是在运行期替换它。"
+			"description": "把外部角色模型作为独立单位引入暗潮，交给引擎去驱动（动作、武器、瞄准、移动），而不是在运行期替换玩家本体资源。"
 		}
 	}
 }

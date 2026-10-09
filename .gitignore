@@ -70,3 +70,8 @@ docs/14-*.md
 *_name_table.*
 *_weight_stats.*
 *_reverse_*.md
+
+# --- ★ 部署/暂存目录（不入库；2026-10-09）---
+# 判据：仓库定位=工具链+文档；这些是编译产出与部署副本
+Custom/
+assets/
