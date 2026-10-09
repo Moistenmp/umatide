@@ -68,7 +68,6 @@ local HIDDEN_SLOTS = {
 	slot_base       = true,
 	slot_gear       = true,
 	slot_gear_1p    = true,
-	slot_attachment = true,
 }
 
 local function is_hidden_slot(slot_name)
@@ -81,6 +80,9 @@ local function is_hidden_slot(slot_name)
 	return string.find(slot_name, "^slot_body_") ~= nil
 		or string.find(slot_name, "^slot_gear_") ~= nil
 		or string.find(slot_name, "^slot_base_") ~= nil
+		-- ★ 2026-10-09：游戏的挂件槽是 slot_attachment_1..3（裸名 slot_attachment 不存在 ⇒ 死键已删）
+		--    精确前缀，只吃挂件；绝不吞 slot_primary / slot_secondary（武器）—— 见上方那条实测教训
+		or string.find(slot_name, "^slot_attachment_") ~= nil
 end
 
 -- ────────────────────────────────────────────────────────────────────────────
